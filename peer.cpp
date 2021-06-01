@@ -118,7 +118,7 @@ void listenForConnections()
 	int bindStatus = ::bind(listenSocket, (struct sockaddr *)&peerAddress, sizeof(struct sockaddr_in6));
 	if (bindStatus < 0)
 	{
-		cout << ("Bind Failed \n");
+		cout << ("Bind Failed, errno:%d \n", errno);
 		return;
 	}
 
@@ -526,6 +526,16 @@ int main(int argc, char **argv)
 	char buffer[4096] = {0};
 	string syncActual = "sync " + string(argv[1]) + " ";
 	sendto(trackerSocket, syncActual.c_str(), syncActual.length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
+
+	buffer[4096] = {0};
+	recvfrom(trackerSocket,buffer, sizeof(buffer), 0, (struct sockaddr *)&trackerAddress, &addr_size);
+
+	string s_temp(buffer);
+	int temp = stoi(s_temp.substr(s_temp.find_last_of(":") + 1));
+
+	peerAddress.sin6_family = AF_INET6;
+	inet_pton(AF_INET6, argv[1], &(peerAddress.sin6_addr));
+	peerAddress.sin6_port = htons(temp);
 
 	while (true)
 	{

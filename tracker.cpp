@@ -469,7 +469,7 @@ int main(int argc, char **argv)
 		struct sockaddr_in6 peerAddress = {};
 		char *buffer = new char[4096];
 		memset(buffer, 0, 4096);
-		if ( recvfrom(socketStatus,buffer, sizeof(buffer), 0, (struct sockaddr *)&peerAddress, &addr_size) < 0 )
+		if ( recvfrom(socketStatus,buffer, 4096, 0, (struct sockaddr *)&peerAddress, &addr_size) < 0 )
 		{
 			printf("Recv failed %d\n", errno);
 			return -1;	
@@ -493,6 +493,7 @@ int main(int argc, char **argv)
 		{
 			//ip = cmds[1].c_str();
 			fullAddress = string(ip) + ":" + to_string(port);
+			sendto(socketStatus, fullAddress.c_str(), fullAddress.length(), 0, (struct sockaddr *)&peerAddress, addr_size );
 			printf("Connection established with IP: %s and PORT: %d\n", ip, port);
 		}
 		else
