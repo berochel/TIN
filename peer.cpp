@@ -34,9 +34,11 @@ map<int, file_properties> downloadedFiles;
 map<int, string> fileBitVectors;		  //file ID,bit vector
 map<int, vector<peer>> currentSeederList; //file ID,peer
 
+socklen_t addr_size = sizeof(struct sockaddr_in6);
+
 using namespace std; //DOWNLOAD FORMAT = d <FILEID> <PIECE RANGE START> <PIECE RANGE END>
 
-void sendPiece(string ip, int port, int acc, string filePath, int startPiece, int endPiece)
+void sendPiece(string ip, int port, string filePath, int startPiece, int endPiece, sockaddr_in6 pAddress, int socketStatus)
 {
 	ifstream fp(filePath, ios::in | ios::binary);
 	struct stat sb;
@@ -59,7 +61,8 @@ void sendPiece(string ip, int port, int acc, string filePath, int startPiece, in
 	while (fp.tellg() <= endPiece * PIECE_SIZE && fp.read(buff, CHUNK_SIZE))
 	{
 		rc -= CHUNK_SIZE;
-		int z = send(acc, buff, CHUNK_SIZE, 0);
+
+		int z = sendto(socketStatus, buff, CHUNK_SIZE, 0, (struct sockaddr *)&pAddress, addr_size);
 		//cout << "Sending " << z << " bytes\n";
 		rer += z;
 		if (rc == 0)
@@ -70,12 +73,12 @@ void sendPiece(string ip, int port, int acc, string filePath, int startPiece, in
 	cout << fp.tellg() << endl;
 	fp.close();
 	cout << "Sent " << rer << " bytes to " << ip << ":" << port << endl;
-	int sta = close(acc);
-	if (sta == 0)
+	//int sta = close(acc);
+	if (true)
 		cout << "Connection closed with " << ip << ":" << port << endl;
 }
 
-void getPiece(int seedSocket, string filePath, int fileid, int pieceLocation)
+void getPiece(int seedSocket, string filePath, int fileid, int pieceLocation, sockaddr_in6 seedAddress)
 {
 	ofstream fp(filePath, ios::out | ios::binary | ios::app);
 	fp.seekp(PIECE_SIZE * pieceLocation, ios::beg);
@@ -86,7 +89,7 @@ void getPiece(int seedSocket, string filePath, int fileid, int pieceLocation)
 	{
 		char *buff = new char[PIECE_SIZE];
 		memset(buff, 0, PIECE_SIZE);
-		n = read(seedSocket, buff, PIECE_SIZE);
+		n = recvfrom(seedSocket, buff, PIECE_SIZE, 0, (struct sockaddr *)&seedAddress, &addr_size);
 		fp.write(buff, n);
 		i += n;
 		if (n != 0 && currPiece < prevBitVec.length())
@@ -103,7 +106,7 @@ void getPiece(int seedSocket, string filePath, int fileid, int pieceLocation)
 
 void listenForConnections()
 {
-	listenSocket = socket(AF_INET6, SOCK_STREAM, 0);
+	listenSocket = socket(AF_INET6, SOCK_DGRAM, 0);
 	int reuseAddress = 1;
 	int listenSocketOptions = setsockopt(listenSocket, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
 	setsockopt(listenSocket, SOL_SOCKET, SO_REUSEPORT, &reuseAddress, sizeof(reuseAddress));
@@ -118,28 +121,20 @@ void listenForConnections()
 		cout << ("Bind Failed \n");
 		return;
 	}
-	if (listen(listenSocket, 3) < 0)
-	{
-		cout << ("Listen Failed \n");
-		return;
-	}
-	char ip[INET_ADDRSTRLEN];
-	inet_ntop(AF_INET6, &(peerAddress.sin6_addr), ip, INET_ADDRSTRLEN);
-	int port = ntohs(peerAddress.sin6_port);
-	printf("Listen started on %s:%d\n", ip, port);
 
 	socklen_t addr_size = sizeof(struct sockaddr_in6);
 	while (IS_PEER_OR_SEEDER)
 	{
+		struct sockaddr_in6 clientAddress = {};
+		char tmp[4096] = {0};
+		recvfrom(listenSocket, tmp, sizeof(tmp), 0, (struct sockaddr *)&clientAddress, &addr_size);
+		char ip[INET_ADDRSTRLEN];
 		memset(ip, 0, INET_ADDRSTRLEN);
-		struct sockaddr_in6 clientAddress;
-		int acc = accept(listenSocket, (struct sockaddr *)&clientAddress, &addr_size);
 		inet_ntop(AF_INET6, &(clientAddress.sin6_addr), ip, INET_ADDRSTRLEN);
-		port = ntohs(clientAddress.sin6_port);
+		int port = ntohs(clientAddress.sin6_port);
 		string fullAddress = string(ip) + ":" + to_string(port);
 		printf("connection established with peer IP : %s and PORT : %d\n", ip, port);
-		char tmp[4096] = {0};
-		recv(acc, tmp, sizeof(tmp), 0);
+
 		string req = string(tmp);
 		if (req[0] == 'd')
 		{
@@ -150,7 +145,7 @@ void listenForConnections()
 				argsFromPeer.push_back(t);
 
 			printf("Peer %s:%d requested for %s with piece range from %s-%s\n", ip, port, downloadedFiles[stoi(argsFromPeer[1])].path.c_str(), argsFromPeer[2].c_str(), argsFromPeer[3].c_str());
-			thread sendDataToPeer(sendPiece, string(ip), port, acc, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]));
+			thread sendDataToPeer(sendPiece, string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), clientAddress, listenSocket);
 			sendDataToPeer.detach();
 		}
 		else
@@ -200,7 +195,7 @@ void startDownload(int fileid, string fileName, string filePath)
 		seedAddress.sin6_port = htons(peerlist[i].port);
 		inet_pton(AF_INET6, peerlist[i].ip.c_str(), &(seedAddress.sin6_addr));
 
-		int seedSocket = socket(AF_INET6, SOCK_STREAM, 0);
+		int seedSocket = socket(AF_INET6, SOCK_DGRAM, 0);
 		setsockopt(seedSocket, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
 		setsockopt(seedSocket, SOL_SOCKET, SO_REUSEPORT, &reuseAddress, sizeof(reuseAddress));
 		if (seedSocket < 0)
@@ -208,23 +203,13 @@ void startDownload(int fileid, string fileName, string filePath)
 			cout << "Unable to download. Socket creation error \n";
 			return;
 		}
-		int trackerConnectStatus = connect(seedSocket, (struct sockaddr *)&seedAddress, sizeof(seedAddress));
-		if (trackerConnectStatus < 0)
-		{
-			char ip[INET6_ADDRSTRLEN];
-			inet_ntop(AF_INET6, &(seedAddress.sin6_addr), ip, INET6_ADDRSTRLEN);
-			int port = ntohs(seedAddress.sin6_port);
-
-			cout << "Tracker connection Failed with seeder IP: " << ip << " and port: " << port << "\n";
-			return;
-		}
 
 		//d <FILEID> <PIECE RANGE START> <PIECE RANGE END>
 		string sss = "d " + to_string(fileid) + " " + to_string(startPiece) + " " + to_string(endPiece);
 		cout << "Send DL request to seed " << peerlist[i].ip << ":" << peerlist[i].port << " for file ID " << fileid << endl;
-		send(seedSocket, sss.c_str(), sss.length(), 0);
+		sendto(seedSocket, sss.c_str(), sss.length(), 0, (struct sockaddr *)&seedAddress, addr_size);
 
-		thread writeToFile(getPiece, seedSocket, filePath, fileid, startPiece);
+		thread writeToFile(getPiece, seedSocket, filePath, fileid, startPiece, seedAddress);
 		writeToFile.join();
 		startPiece = endPiece + 1;
 		endPiece += (chunks / maxConns);
@@ -247,8 +232,8 @@ void startDownload(int fileid, string fileName, string filePath)
 	string ss = "o " + to_string(fileid);
 	char *buffer = new char[4096];
 	memset(buffer, 0, 4096);
-	send(trackerSocket, ss.c_str(), ss.length(), 0);
-	read(trackerSocket, buffer, 4096);
+	sendto(trackerSocket, ss.c_str(), ss.length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
+	recvfrom(trackerSocket, buffer, sizeof(buffer), 0, (struct sockaddr *)&trackerAddress, &addr_size);
 	cout << string(buffer) << endl;
 
 	int totPiece = 0;
@@ -513,13 +498,15 @@ int main(int argc, char **argv)
 	trackInfo >> ix >> px;
 	trackInfo.close();
 	
+	socklen_t addr_size = sizeof(struct sockaddr_in6);
+
 	
 	trackerAddress.sin6_family = AF_INET6;
 	trackerAddress.sin6_port = htons(stoi(px));
 	inet_pton(AF_INET6, ix.c_str(), &(trackerAddress.sin6_addr));
 
 	
-	trackerSocket = socket(AF_INET6, SOCK_STREAM, 0);
+	trackerSocket = socket(AF_INET6, SOCK_DGRAM, 0);
 	int listenSocketOptions = setsockopt(trackerSocket, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
 	setsockopt(trackerSocket, SOL_SOCKET, SO_REUSEPORT, &reuseAddress, sizeof(reuseAddress));
 	
@@ -530,33 +517,15 @@ int main(int argc, char **argv)
 	
 	}
 
-	int trackerConnectStatus = connect(trackerSocket, (struct sockaddr *)&trackerAddress, sizeof(trackerAddress));
-	
-	if (trackerConnectStatus < 0)
-	{
-		cout << ("Tracker connection Failed \n");
-		return -1;
-	}
 
 	char ip[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, &(trackerAddress.sin6_addr), ip, INET6_ADDRSTRLEN);
 	int port = ntohs(trackerAddress.sin6_port);
 	printf("Connecting to: %s, Port: %d\n", ip, port);
-
-
+	
 	char buffer[4096] = {0};
-	int valread = read(trackerSocket, buffer, 4096);
-	cout << string(buffer) << endl;
-
-	string s_temp(buffer);
-	int temp = stoi(s_temp.substr(s_temp.find_last_of(":") + 1));
-
-	peerAddress.sin6_family = AF_INET6;
-	inet_pton(AF_INET6, argv[1], &(peerAddress.sin6_addr));
-	peerAddress.sin6_port = htons(temp);
-
 	string syncActual = "sync " + string(argv[1]) + " ";
-	send(trackerSocket, syncActual.c_str(), syncActual.length(), 0);
+	sendto(trackerSocket, syncActual.c_str(), syncActual.length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
 
 	while (true)
 	{
@@ -566,9 +535,12 @@ int main(int argc, char **argv)
 			continue;
 		
 
-		send(trackerSocket, command_string.c_str(), (command_string).length(), 0);
+		sendto(trackerSocket, command_string.c_str(), (command_string).length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
 		command_string = "";
-		valread = read(trackerSocket, buffer, 4096);
+
+		int valread = recvfrom(trackerSocket, buffer, sizeof(buffer), 0,(struct sockaddr *)&trackerAddress, &addr_size);
+
+		command_string = "";
 		cout << string(buffer) << endl;
 		
 

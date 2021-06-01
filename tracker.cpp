@@ -34,18 +34,23 @@ vector<string> connectedClients;
 //map<string, user> peerDetailsList;
 int FILE_ID = 1;
 
-void handlePeerCommunication(string ip, int p, int acc)
+void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr_in6 peerAddress)
 {
-	cout << "Thread launch\n";
+	socklen_t addr_size = sizeof(struct sockaddr_in6);
+
 	char *buffer; //[4096] = {0};
 	bool IS_LOGGED_IN = false;
 	string LOGIN_ID = "";
+
 	while (true)
 	{
 		buffer = new char[4096];
 		memset(buffer, 0, 4096);
-		int l = read(acc, buffer, 4096);
-		printf("Client %s:%d said %s (Msg length %d)\n", ip.c_str(), p, buffer, l);
+		if (recvfrom(socketStatus,buffer, sizeof(buffer), 0, (struct sockaddr *)&peerAddress, &addr_size) < 0 )
+		{
+			printf("Recv failed with errno: %d\n", errno);
+		}
+		printf("Client %s:%d said %s (Msg length )\n", ip.c_str(), p, buffer);
 		string cmdRecvd = string(buffer);
 		//for (int i = 0; i < l; i++)cmdRecvd += buffer[i];
 		string t, msg = "";
@@ -57,7 +62,7 @@ void handlePeerCommunication(string ip, int p, int acc)
 		{
 			cmds.push_back(t);
 		}
-		//cout << cmds[0]<<"W1\n";
+		cout << cmds[0]<<"W1\n";
 		if (cmds[0] == "a")
 		{
 			user u(cmds[1], cmds[2]);
@@ -76,7 +81,10 @@ void handlePeerCommunication(string ip, int p, int acc)
 				msg = "User added";
 				USER_DB.push_back(u);
 			}
-			send(acc, msg.c_str(), msg.length(), 0);
+			if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
+			{
+				printf("Sendto failed!");
+			}
 		}
 		else if (cmds[0] == "b")
 		{
@@ -105,7 +113,10 @@ void handlePeerCommunication(string ip, int p, int acc)
 					msg = "Already logged in another instance";
 				}
 			}
-			send(acc, msg.c_str(), msg.length(), 0);
+			if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
+			{
+				printf("Sendto failed!");
+			}
 		}
 		else if (cmds[0] == "c")
 		{
@@ -133,7 +144,10 @@ void handlePeerCommunication(string ip, int p, int acc)
 
 				msg = "Group " + grp.name + " created with admin " + grp.adminUserID;
 			}
-			send(acc, msg.c_str(), msg.length(), 0);
+			if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
+			{
+				printf("Sendto failed!");
+			}
 		}
 		else if (cmds[0] == "d")
 		{
@@ -166,7 +180,10 @@ void handlePeerCommunication(string ip, int p, int acc)
 					msg = "Request sent";
 				}
 			}
-			send(acc, msg.c_str(), msg.length(), 0);
+			if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
+			{
+				printf("Sendto failed!");
+			}
 		}
 		else if (cmds[0] == "e")
 		{
@@ -193,7 +210,10 @@ void handlePeerCommunication(string ip, int p, int acc)
 					msg = "User " + LOGIN_ID + " removed from group " + GROUPS[i].name;
 				}
 			}
-			send(acc, msg.c_str(), msg.length(), 0);
+			if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
+			{
+				printf("Sendto failed!");
+			}
 		}
 		else if (cmds[0] == "f")
 		{
@@ -210,7 +230,10 @@ void handlePeerCommunication(string ip, int p, int acc)
 				else
 					msg = "For group " + grpp.grpname + " pending requests are: " + pp;
 			}
-			send(acc, msg.c_str(), msg.length(), 0);
+			if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
+			{
+				printf("Sendto failed!");
+			}
 		}
 		else if (cmds[0] == "g")
 		{
@@ -232,14 +255,20 @@ void handlePeerCommunication(string ip, int p, int acc)
 					msg = "For group " + grpp.grpname + ", join request approved for " + cmds[2];
 				}
 			}
-			send(acc, msg.c_str(), msg.length(), 0);
+			if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
+			{
+				printf("Sendto failed!");
+			}
 		}
 		else if (cmds[0] == "h")
 		{
 			msg = "All groups in the network: ";
 			for (int i = 0; i < GROUPS.size(); i++)
 				msg += ("\n" + GROUPS[i].name);
-			send(acc, msg.c_str(), msg.length(), 0);
+			if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
+			{
+				printf("Sendto failed!");
+			}
 		}
 		else if (cmds[0] == "i")
 		{
@@ -254,7 +283,10 @@ void handlePeerCommunication(string ip, int p, int acc)
 					msg += ("\n" + grpFiles[i].path);
 				}
 			}
-			send(acc, msg.c_str(), msg.length(), 0);
+			if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
+			{
+				printf("Sendto failed!");
+			}
 		}
 		else if (cmds[0] == "j")
 		{
@@ -300,7 +332,10 @@ void handlePeerCommunication(string ip, int p, int acc)
 					msg = to_string(FILE_ID - 1) + " ID File " + cmds[1] + " added to group " + cmds[2];
 				}
 			}
-			send(acc, msg.c_str(), msg.length(), 0);
+			if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
+			{
+				printf("Sendto failed!");
+			}
 		}
 		else if (cmds[0] == "k") // DL FILE
 		{
@@ -335,7 +370,10 @@ void handlePeerCommunication(string ip, int p, int acc)
 					}
 				}
 			}
-			send(acc, msg.c_str(), msg.length(), 0);
+			if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
+			{
+				printf("Sendto failed!");
+			}
 		}
 		else if (cmds[0] == "l")
 		{
@@ -344,7 +382,10 @@ void handlePeerCommunication(string ip, int p, int acc)
 			auto pos = find(connectedClients.begin(), connectedClients.end(), ip + ":" + to_string(p));
 			if (pos != connectedClients.end())
 				connectedClients.erase(pos);
-			send(acc, msg.c_str(), msg.length(), 0);
+			if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
+			{
+				printf("Sendto failed!");
+			}
 			break;
 		}
 		else if (cmds[0] == "m")
@@ -356,7 +397,10 @@ void handlePeerCommunication(string ip, int p, int acc)
 		{
 			//stop share - remove from seeder list
 			msg = "Not implemented";
-			send(acc, msg.c_str(), msg.length(), 0);
+			if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
+			{
+				printf("Sendto failed!");
+			}
 		}
 		else if (cmds[0] == "o") //add as seeder
 		{
@@ -367,12 +411,18 @@ void handlePeerCommunication(string ip, int p, int acc)
 			vv.seederList = peerSet;
 			fileIndex[stoi(cmds[1])] = vv;
 			msg = currentPeer.ip + ":" + to_string(currentPeer.port) + " added as seeder for file ID " + cmds[1];
-			send(acc, msg.c_str(), msg.length(), 0);
+			if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
+			{
+				printf("Sendto failed!");
+			}
 		}
 		else
 		{
 			msg = "Unknown value";
-			send(acc, msg.c_str(), msg.length(), 0);
+			if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
+			{
+				printf("Sendto failed!");
+			}
 		}
 	}
 }
@@ -390,7 +440,9 @@ int main(int argc, char **argv)
 	trackInfo >> ix >> px;
 	trackInfo.close();
 
-	struct sockaddr_in6 peerAddress;
+	struct sockaddr_in6 peerAddress = {};
+	socklen_t addr_size = sizeof(struct sockaddr_in6);
+
 
 	struct in6_addr buf;
 	inet_pton(AF_INET6,ix.c_str(),&buf);
@@ -398,7 +450,7 @@ int main(int argc, char **argv)
 	addrinfo hint = {};
 	hint.ai_flags = AI_NUMERICHOST;
 	hint.ai_family = AF_INET6;
-	hint.ai_socktype = SOCK_STREAM;
+	hint.ai_socktype - SOCK_DGRAM;
 	hint.ai_protocol = 0;
 	hint.ai_canonname = NULL;
     hint.ai_addr = NULL;
@@ -414,7 +466,7 @@ int main(int argc, char **argv)
     	return -1;
 	}
 
-	int socketStatus = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+	int socketStatus = socket(PF_INET6, SOCK_DGRAM,0);
 	
 	if (socketStatus < 0)
 	{
@@ -426,39 +478,34 @@ int main(int argc, char **argv)
 
 	if (bindStatus < 0)
 	{
-		printf("Bind failed with status: %d\n", bindStatus);
-		return -1;
-	}
-	int listenStatus = listen(socketStatus, 3);
-	if (listenStatus < 0)
-	{
-		cout << ("Listen Failed \n");
+		printf("Bind failed with status: %d\n", errno);
 		return -1;
 	}
 
 	
 	int port = ntohs(((struct sockaddr_in6*)res->ai_addr)->sin6_port);
-
-	printf("Listen started on %s, Port: %d\n", ix.c_str(), port);
-
+	printf("Listen started on %s, Port:\n", ix.c_str());
 
 
-	socklen_t addr_size = sizeof(struct sockaddr_in6);
+
 	while (true)
 	{
-		int acc = accept(socketStatus, (struct sockaddr *)&peerAddress, &addr_size);
 		char ip[res->ai_addrlen];
-
-		inet_ntop(AF_INET6, &(peerAddress.sin6_addr), ip, INET6_ADDRSTRLEN);
-		port = ntohs(peerAddress.sin6_port);
-		string fullAddress = string(ip) + ":" + to_string(port);
-		
-		string temp = "You are connected to " + ix + ":" + px + " with IP " + string(ip) + ":" + to_string(port);
-		send(acc, temp.c_str(), temp.length(), 0);
 
 		char *buffer = new char[4096];
 		memset(buffer, 0, 4096);
-		int l = read(acc, buffer, 4096);
+		if ( recvfrom(socketStatus,buffer, sizeof(buffer), 0, (struct sockaddr *)&peerAddress, &addr_size) < 0 )
+		{
+			printf("Recv failed %d\n", errno);
+			return -1;	
+		}
+
+		inet_ntop(AF_INET6, &(peerAddress.sin6_addr), ip, INET6_ADDRSTRLEN);
+		int port = ntohs(peerAddress.sin6_port);
+		string fullAddress = string(ip) + ":" + to_string(port);
+		
+		printf("You are connected to %s\n",fullAddress.c_str());
+
 		string cmdRecvd = string(buffer);
 		string t, msg = "";
 		stringstream x(cmdRecvd);
@@ -479,7 +526,9 @@ int main(int argc, char **argv)
 			continue;
 		else
 			connectedClients.push_back(fullAddress);
-		thread launchPeer(handlePeerCommunication, string(ip), port, acc); //, string(ip), port,descriptor
+		
+		cout<<fullAddress;
+		thread launchPeer(handlePeerCommunication, string(ip), port ,socketStatus, peerAddress); //, string(ip), port,descriptor
 		launchPeer.detach();
 	}
 	return 0; //compile with g++ -std=c++17 -o tracker tracker.cpp
