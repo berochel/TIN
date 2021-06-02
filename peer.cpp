@@ -286,7 +286,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "a " + cmds[1] + " " + cmds[2];
+		command_string = "10 " + cmds[1] + " " + cmds[2];
 	}
 	else if (cmds[0] == "login")
 	{
@@ -301,7 +301,7 @@ int getCommand()
 			return 0;
 		}
 		LOGIN_ID = cmds[1];
-		command_string = "b " + cmds[1] + " " + cmds[2];
+		command_string = "11 " + cmds[1] + " " + cmds[2];
 		return 10;
 	}
 	else if (cmds[0] == "create_group")
@@ -316,7 +316,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "c " + cmds[1];
+		command_string = "20 " + cmds[1];
 	}
 	else if (cmds[0] == "join_group")
 	{
@@ -330,7 +330,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "d " + cmds[1];
+		command_string = "21 " + cmds[1];
 	}
 	else if (cmds[0] == "leave_group")
 	{
@@ -344,7 +344,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "e " + cmds[1];
+		command_string = "29 " + cmds[1];
 	}
 	else if (cmds[0] == "list_requests")
 	{
@@ -358,7 +358,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "f " + cmds[1];
+		command_string = "42 " + cmds[1];
 	}
 	else if (cmds[0] == "accept_request")
 	{
@@ -372,7 +372,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "g " + cmds[1] + " " + cmds[2];
+		command_string = "43 " + cmds[1] + " " + cmds[2];
 	}
 	else if (cmds[0] == "list_groups")
 	{
@@ -381,7 +381,7 @@ int getCommand()
 			cout << "User is not logged in\n";
 			return 0;
 		}
-		command_string = "h";
+		command_string = "22";
 	}
 	else if (cmds[0] == "list_files")
 	{
@@ -395,7 +395,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "i " + cmds[1];
+		command_string = "32 " + cmds[1];
 	}
 	else if (cmds[0] == "upload_file")
 	{
@@ -423,7 +423,7 @@ int getCommand()
 		if (FILE *file = fopen(filePath.c_str(), "r"))
 		{
 			fclose(file);
-			command_string = "j " + filePath + " " + cmds[2];
+			command_string = "30 " + filePath + " " + cmds[2];
 			cout << command_string << endl;
 			fileUploadPath = filePath;
 			fileUploadPathGroup = cmds[2];
@@ -447,7 +447,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "k " + cmds[1] + " " + cmds[2] + " " + cmds[3];
+		command_string = "31 " + cmds[1] + " " + cmds[2] + " " + cmds[3];
 		fileUploadPathGroup = cmds[1];
 		fileDownloadName = cmds[2];
 		fileDownloadPath = cmds[3];
@@ -459,7 +459,7 @@ int getCommand()
 		{
 			cout << "User is not logged in but quitting anyway\n";
 		}
-		command_string = "l";
+		command_string = "19";
 		return 100;
 	}
 	else if (cmds[0] == "show_downloads")
@@ -469,7 +469,7 @@ int getCommand()
 			cout << "User is not logged in\n";
 			return 0;
 		}
-		command_string = "m";
+		command_string = "35";
 	}
 	else if (cmds[0] == "stop_share")
 	{
@@ -483,7 +483,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "n " + cmds[1] + " " + cmds[2];
+		command_string = "39 " + cmds[1] + " " + cmds[2];
 	}
 	else
 	{
