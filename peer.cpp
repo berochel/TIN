@@ -14,10 +14,11 @@
 #include <vector>
 #include <map>
 #include <sstream>
+#include <mutex>
 #include "ClassDefinitions.h"
 
 bool IS_LOGGED_IN = false;
-bool LOGIN_ID = "";
+string LOGIN_ID = "0";
 bool IS_PEER_OR_SEEDER = false;
 int listenSocket;
 int trackerSocket;
@@ -29,6 +30,7 @@ string fileDownloadPath = "";
 string fileDownloadName = "";
 struct sockaddr_in6 trackerAddress, peerAddress;
 addrinfo *tracker, *peer_own;
+std::mutex m;
 
 map<int, file_properties> downloadedFiles;
 map<int, string> fileBitVectors;		  //file ID,bit vector
@@ -89,7 +91,9 @@ void getPiece(int seedSocket, string filePath, int fileid, int pieceLocation, so
 	{
 		char *buff = new char[PIECE_SIZE];
 		memset(buff, 0, PIECE_SIZE);
+		m.lock();
 		n = recvfrom(seedSocket, buff, PIECE_SIZE, 0, (struct sockaddr *)&seedAddress, &addr_size);
+		m.unlock();
 		fp.write(buff, n);
 		i += n;
 		if (n != 0 && currPiece < prevBitVec.length())
@@ -127,7 +131,9 @@ void listenForConnections()
 	{
 		struct sockaddr_in6 clientAddress = {};
 		char tmp[4096] = {0};
+		m.lock();
 		recvfrom(listenSocket, tmp, sizeof(tmp), 0, (struct sockaddr *)&clientAddress, &addr_size);
+		m.unlock();
 		char ip[INET_ADDRSTRLEN];
 		memset(ip, 0, INET_ADDRSTRLEN);
 		inet_ntop(AF_INET6, &(clientAddress.sin6_addr), ip, INET_ADDRSTRLEN);
@@ -147,6 +153,7 @@ void listenForConnections()
 			printf("Peer %s:%d requested for %s with piece range from %s-%s\n", ip, port, downloadedFiles[stoi(argsFromPeer[1])].path.c_str(), argsFromPeer[2].c_str(), argsFromPeer[3].c_str());
 			thread sendDataToPeer(sendPiece, string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), clientAddress, listenSocket);
 			sendDataToPeer.detach();
+			// sendPiece(string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), clientAddress, listenSocket);
 		}
 		else
 			cout << "Invalid command\n";
@@ -207,10 +214,13 @@ void startDownload(int fileid, string fileName, string filePath)
 		//d <FILEID> <PIECE RANGE START> <PIECE RANGE END>
 		string sss = "d " + to_string(fileid) + " " + to_string(startPiece) + " " + to_string(endPiece);
 		cout << "Send DL request to seed " << peerlist[i].ip << ":" << peerlist[i].port << " for file ID " << fileid << endl;
+		printf("dupa");
+		//co sie tutaj kurwa dzieje
 		sendto(seedSocket, sss.c_str(), sss.length(), 0, (struct sockaddr *)&seedAddress, addr_size);
 
 		thread writeToFile(getPiece, seedSocket, filePath, fileid, startPiece, seedAddress);
 		writeToFile.join();
+		// getPiece(seedSocket, filePath, fileid, startPiece, seedAddress);
 		startPiece = endPiece + 1;
 		endPiece += (chunks / maxConns);
 		if (startPiece >= chunks)
@@ -233,7 +243,9 @@ void startDownload(int fileid, string fileName, string filePath)
 	char *buffer = new char[4096];
 	memset(buffer, 0, 4096);
 	sendto(trackerSocket, ss.c_str(), ss.length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
+	m.lock();
 	recvfrom(trackerSocket, buffer, sizeof(buffer), 0, (struct sockaddr *)&trackerAddress, &addr_size);
+	m.unlock();
 	cout << string(buffer) << endl;
 
 	int totPiece = 0;
@@ -256,6 +268,7 @@ void startDownload(int fileid, string fileName, string filePath)
 		IS_PEER_OR_SEEDER = true;
 		thread startListenOnPeer(listenForConnections);
 		startListenOnPeer.detach();
+		// listenForConnections();
 	}
 	//getCommand();
 }
@@ -293,6 +306,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
+		LOGIN_ID = cmds[1];
 		command_string = "b " + cmds[1] + " " + cmds[2];
 		return 10;
 	}
@@ -528,8 +542,9 @@ int main(int argc, char **argv)
 	sendto(trackerSocket, syncActual.c_str(), syncActual.length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
 
 	buffer[4096] = {0};
+	m.lock();
 	recvfrom(trackerSocket,buffer, sizeof(buffer), 0, (struct sockaddr *)&trackerAddress, &addr_size);
-
+	m.unlock();
 	string s_temp(buffer);
 	int temp = stoi(s_temp.substr(s_temp.find_last_of(":") + 1));
 
@@ -543,13 +558,13 @@ int main(int argc, char **argv)
 		int cmdFlag = getCommand();
 		if (cmdFlag == 0 || command_string == "")
 			continue;
-		
+		command_string+=' ' + LOGIN_ID;
 
 		sendto(trackerSocket, command_string.c_str(), (command_string).length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
 		command_string = "";
-
+		m.lock();
 		int valread = recvfrom(trackerSocket, buffer, sizeof(buffer), 0,(struct sockaddr *)&trackerAddress, &addr_size);
-
+		m.unlock();
 		command_string = "";
 		cout << string(buffer) << endl;
 		
@@ -590,6 +605,7 @@ int main(int argc, char **argv)
 				IS_PEER_OR_SEEDER = true;
 				thread startListenOnPeer(listenForConnections);
 				startListenOnPeer.detach();
+				// listenForConnections();
 			}
 		}
 		else if (cmdFlag == 30 && isdigit(string(buffer)[0]))
@@ -621,6 +637,7 @@ int main(int argc, char **argv)
 			//START DOWNLOAD
 			thread startdl(startDownload, fileid, fileDownloadName, fileDownloadPath);
 			startdl.detach();
+			// startDownload( fileid, fileDownloadName, fileDownloadPath);
 		}
 	}
 

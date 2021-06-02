@@ -40,7 +40,10 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 
 	//char *buffer; //[4096] = {0};
 	bool IS_LOGGED_IN = false;
-	string LOGIN_ID = "";
+	string LOGIN_ID = cmds.back();
+	cmds.pop_back();
+	if (LOGIN_ID != "0")
+		IS_LOGGED_IN = true;
 	string t, msg = "";
 
 	if (cmds[0] == "a")

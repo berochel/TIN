@@ -19,9 +19,11 @@ public:
 	{
 		this->userID = userID;
 		this->password = password;
+		this->isLoggedIn = true;
 	}
 	string userID;
 	string password;
+	bool isLoggedIn;
 };
 
 class peer
