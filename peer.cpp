@@ -76,6 +76,7 @@ void sendPiece(string ip, int port, string filePath, int startPiece, int endPiec
 	cout << fp.tellg() << endl;
 	fp.close();
 	cout << "Sent " << rer << " bytes to " << ip << ":" << port << endl;
+	IS_PEER_OR_SEEDER=false;
 }
 
 void getPiece(int seedSocket, string filePath, int fileid, int pieceLocation, sockaddr_in6 seedAddress)
@@ -257,19 +258,20 @@ void startDownload(int fileid, string fileName, string filePath)
 
 	file_properties f(fileid, fileName, fileName, fileUploadPathGroup, totPiece, totalHash, set<peer>());
 	downloadedFiles[fileid] = f;
-	if (!IS_PEER_OR_SEEDER)
-	{
-		IS_PEER_OR_SEEDER = true;
-		// thread startListenOnPeer(listenForConnections);
-		// startListenOnPeer.detach();
-		listenForConnections();
-	}
+	// if (!IS_PEER_OR_SEEDER)
+	// {
+	// 	IS_PEER_OR_SEEDER = true;
+	// 	thread startListenOnPeer(listenForConnections);
+	// 	startListenOnPeer.detach();
+	// 	// listenForConnections();
+	// }
 	//getCommand();
 }
 
 int getCommand()
 {
 	string s, t;
+	command_string="";
 	getline(cin, s);
 	if (s == "" || s == "\n")
 		return 0;
@@ -597,9 +599,9 @@ int main(int argc, char **argv)
 			if (!IS_PEER_OR_SEEDER)
 			{
 				IS_PEER_OR_SEEDER = true;
-				// thread startListenOnPeer(listenForConnections);
-				// startListenOnPeer.detach();
-				listenForConnections();
+				thread startListenOnPeer(listenForConnections);
+				startListenOnPeer.detach();
+				// listenForConnections();
 			}
 		}
 		else if (cmdFlag == 30 && isdigit(string(buffer)[0]))
@@ -632,7 +634,7 @@ int main(int argc, char **argv)
 			// thread startdl(startDownload, fileid, fileDownloadName, fileDownloadPath);
 			// startdl.detach();
 			startDownload( fileid, fileDownloadName, fileDownloadPath);
-		}
+		}	
 	}
 
 	return 0;
