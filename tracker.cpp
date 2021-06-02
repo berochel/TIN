@@ -383,7 +383,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 		{
 			printf("Sendto failed!");
 		}
-	}x9
+	}
 	else if (cmds[0] == "50") //add as seeder
 	{
 		file_properties vv = fileIndex[stoi(cmds[1])];

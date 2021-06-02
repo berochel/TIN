@@ -631,9 +631,9 @@ int main(int argc, char **argv)
 			currentSeederList[fileid] = peerList;
 
 			//START DOWNLOAD
-			// thread startdl(startDownload, fileid, fileDownloadName, fileDownloadPath);
-			// startdl.detach();
-			startDownload( fileid, fileDownloadName, fileDownloadPath);
+			thread startdl(startDownload, fileid, fileDownloadName, fileDownloadPath);
+			startdl.detach();
+			// startDownload( fileid, fileDownloadName, fileDownloadPath);
 		}	
 	}
 
