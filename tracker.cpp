@@ -46,7 +46,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 		IS_LOGGED_IN = true;
 	string t, msg = "";
 
-	if (cmds[0] == "a")
+	if (cmds[0] == "10")
 	{
 		user u(cmds[1], cmds[2]);
 		bool flag = false;
@@ -69,7 +69,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			printf("Sendto failed!");
 		}
 	}
-	else if (cmds[0] == "b")
+	else if (cmds[0] == "11")
 	{
 		peer client(ip, p, cmds[1]);
 		int i;
@@ -101,7 +101,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			printf("Sendto failed!");
 		}
 	}
-	else if (cmds[0] == "c")
+	else if (cmds[0] == "20")
 	{
 		group grp(cmds[1], LOGIN_ID);
 		set<string> mems; //add admin to group
@@ -132,7 +132,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			printf("Sendto failed!");
 		}
 	}
-	else if (cmds[0] == "d")
+	else if (cmds[0] == "21")
 	{
 		int i;
 		bool flag = false;
@@ -168,7 +168,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			printf("Sendto failed!");
 		}
 	}
-	else if (cmds[0] == "e")
+	else if (cmds[0] == "29")
 	{
 		string grpName = cmds[1];
 		int i;
@@ -198,7 +198,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			printf("Sendto failed!");
 		}
 	}
-	else if (cmds[0] == "f")
+	else if (cmds[0] == "42")
 	{
 		group_pending_request grpp = groupPendingRequests[cmds[1]];
 		if (grpp.grpname == "")
@@ -218,7 +218,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			printf("Sendto failed!");
 		}
 	}
-	else if (cmds[0] == "g")
+	else if (cmds[0] == "43")
 	{
 		group_pending_request grpp = groupPendingRequests[cmds[1]];
 		if (grpp.grpname == "")
@@ -243,7 +243,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			printf("Sendto failed!");
 		}
 	}
-	else if (cmds[0] == "h")
+	else if (cmds[0] == "22")
 	{
 		msg = "All groups in the network: ";
 		for (int i = 0; i < GROUPS.size(); i++)
@@ -253,7 +253,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			printf("Sendto failed!");
 		}
 	}
-	else if (cmds[0] == "i")
+	else if (cmds[0] == "32")
 	{
 		vector<file_properties> grpFiles = filesInGroup[cmds[1]];
 		if (grpFiles.size() == 0)
@@ -271,7 +271,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			printf("Sendto failed!");
 		}
 	}
-	else if (cmds[0] == "j")
+	else if (cmds[0] == "30")
 	{
 		int i, totPiece = 0;
 		string totalHash = "";
@@ -320,7 +320,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			printf("Sendto failed!");
 		}
 	}
-	else if (cmds[0] == "k") // DL FILE
+	else if (cmds[0] == "31") // DL FILE
 	{
 		int i;
 		for (i = 0; i < GROUPS.size(); i++)
@@ -358,7 +358,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			printf("Sendto failed!");
 		}
 	}
-	else if (cmds[0] == "l")
+	else if (cmds[0] == "19")
 	{
 		msg = "Logged out. Bye!";
 		peerList.erase(LOGIN_ID);
@@ -370,12 +370,12 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			printf("Sendto failed!");
 		}
 	}
-	else if (cmds[0] == "m")
+	else if (cmds[0] == "35")
 	{
 		//Show downloads in peer side, nothing to do here
 		//send(acc, msg.c_str(), msg.length(), 0);
 	}
-	else if (cmds[0] == "n")
+	else if (cmds[0] == "39")
 	{
 		//stop share - remove from seeder list
 		msg = "Not implemented";
@@ -383,8 +383,8 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 		{
 			printf("Sendto failed!");
 		}
-	}
-	else if (cmds[0] == "o") //add as seeder
+	}x9
+	else if (cmds[0] == "50") //add as seeder
 	{
 		file_properties vv = fileIndex[stoi(cmds[1])];
 		peer currentPeer = peerList[LOGIN_ID];
