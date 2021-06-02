@@ -72,12 +72,10 @@ void sendPiece(string ip, int port, string filePath, int startPiece, int endPiec
 		if (rc < CHUNK_SIZE)
 			CHUNK_SIZE = rc;
 	}
+	sendto(socketStatus, buff, 0, 0, (struct sockaddr *)&pAddress, addr_size);
 	cout << fp.tellg() << endl;
 	fp.close();
 	cout << "Sent " << rer << " bytes to " << ip << ":" << port << endl;
-	//int sta = close(acc);
-	if (true)
-		cout << "Connection closed with " << ip << ":" << port << endl;
 }
 
 void getPiece(int seedSocket, string filePath, int fileid, int pieceLocation, sockaddr_in6 seedAddress)
@@ -91,9 +89,9 @@ void getPiece(int seedSocket, string filePath, int fileid, int pieceLocation, so
 	{
 		char *buff = new char[PIECE_SIZE];
 		memset(buff, 0, PIECE_SIZE);
-		m.lock();
+		//m.lock();
 		n = recvfrom(seedSocket, buff, PIECE_SIZE, 0, (struct sockaddr *)&seedAddress, &addr_size);
-		m.unlock();
+		//m.unlock();
 		fp.write(buff, n);
 		i += n;
 		if (n != 0 && currPiece < prevBitVec.length())
@@ -101,7 +99,7 @@ void getPiece(int seedSocket, string filePath, int fileid, int pieceLocation, so
 		//cout << "Wrote " << n << " bytes\n";
 	} while (n > 0);
 	cout << "Wrote " << i << " bytes\n";
-	cout << filePath;
+	//cout << filePath;
 	//prevBitVec[pieceLocation] = '1';
 	fileBitVectors[fileid] = prevBitVec;
 	fp.close();
@@ -151,9 +149,9 @@ void listenForConnections()
 				argsFromPeer.push_back(t);
 
 			printf("Peer %s:%d requested for %s with piece range from %s-%s\n", ip, port, downloadedFiles[stoi(argsFromPeer[1])].path.c_str(), argsFromPeer[2].c_str(), argsFromPeer[3].c_str());
-			thread sendDataToPeer(sendPiece, string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), clientAddress, listenSocket);
-			sendDataToPeer.detach();
-			// sendPiece(string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), clientAddress, listenSocket);
+			// thread sendDataToPeer(sendPiece, string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), clientAddress, listenSocket);
+			// sendDataToPeer.detach();
+			sendPiece(string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), clientAddress, listenSocket);
 		}
 		else
 			cout << "Invalid command\n";
@@ -203,8 +201,6 @@ void startDownload(int fileid, string fileName, string filePath)
 		inet_pton(AF_INET6, peerlist[i].ip.c_str(), &(seedAddress.sin6_addr));
 
 		int seedSocket = socket(AF_INET6, SOCK_DGRAM, 0);
-		setsockopt(seedSocket, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
-		setsockopt(seedSocket, SOL_SOCKET, SO_REUSEPORT, &reuseAddress, sizeof(reuseAddress));
 		if (seedSocket < 0)
 		{
 			cout << "Unable to download. Socket creation error \n";
@@ -214,8 +210,6 @@ void startDownload(int fileid, string fileName, string filePath)
 		//d <FILEID> <PIECE RANGE START> <PIECE RANGE END>
 		string sss = "d " + to_string(fileid) + " " + to_string(startPiece) + " " + to_string(endPiece);
 		cout << "Send DL request to seed " << peerlist[i].ip << ":" << peerlist[i].port << " for file ID " << fileid << endl;
-		printf("dupa");
-		//co sie tutaj kurwa dzieje
 		sendto(seedSocket, sss.c_str(), sss.length(), 0, (struct sockaddr *)&seedAddress, addr_size);
 
 		thread writeToFile(getPiece, seedSocket, filePath, fileid, startPiece, seedAddress);
@@ -266,9 +260,9 @@ void startDownload(int fileid, string fileName, string filePath)
 	if (!IS_PEER_OR_SEEDER)
 	{
 		IS_PEER_OR_SEEDER = true;
-		thread startListenOnPeer(listenForConnections);
-		startListenOnPeer.detach();
-		// listenForConnections();
+		// thread startListenOnPeer(listenForConnections);
+		// startListenOnPeer.detach();
+		listenForConnections();
 	}
 	//getCommand();
 }
@@ -603,9 +597,9 @@ int main(int argc, char **argv)
 			if (!IS_PEER_OR_SEEDER)
 			{
 				IS_PEER_OR_SEEDER = true;
-				thread startListenOnPeer(listenForConnections);
-				startListenOnPeer.detach();
-				// listenForConnections();
+				// thread startListenOnPeer(listenForConnections);
+				// startListenOnPeer.detach();
+				listenForConnections();
 			}
 		}
 		else if (cmdFlag == 30 && isdigit(string(buffer)[0]))
@@ -635,9 +629,9 @@ int main(int argc, char **argv)
 			currentSeederList[fileid] = peerList;
 
 			//START DOWNLOAD
-			thread startdl(startDownload, fileid, fileDownloadName, fileDownloadPath);
-			startdl.detach();
-			// startDownload( fileid, fileDownloadName, fileDownloadPath);
+			// thread startdl(startDownload, fileid, fileDownloadName, fileDownloadPath);
+			// startdl.detach();
+			startDownload( fileid, fileDownloadName, fileDownloadPath);
 		}
 	}
 

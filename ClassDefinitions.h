@@ -10,7 +10,7 @@
 
 using namespace std;
 
-size_t PIECE_SIZE = 512 * 1024;
+size_t PIECE_SIZE = 1024;
 class user
 {
 public:
