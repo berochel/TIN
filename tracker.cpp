@@ -312,7 +312,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 				vv.push_back(fp);
 				filesInGroup[cmds[2]] = vv;
 				fileIndex[FILE_ID - 1] = fp;
-				msg = to_string(FILE_ID - 1) + " ID File " + cmds[1] + " added to group " + cmds[2];
+				msg = "30 " + to_string(FILE_ID - 1) + " ID File " + cmds[1] + " added to group " + cmds[2];
 			}
 		}
 		if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
@@ -347,7 +347,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 					msg = "No seeds are currently present";
 				else
 				{
-					msg = to_string(files[i].id) + " "; //add file id to beginning
+					msg = "31 " + to_string(files[i].id) + " "; //add file id to beginning
 					for (auto i = seeds.begin(); i != seeds.end(); ++i)
 						msg += ((*i).ip + ":" + to_string((*i).port) + " ");
 				}
@@ -501,8 +501,9 @@ int main(int argc, char **argv)
 		}
 		else
 		{
-			thread launchPeer(handlePeerCommunication, string(ip), port ,socketStatus, peerAddress, cmds); //, string(ip), port,descriptor
-			launchPeer.detach();
+			// thread launchPeer(handlePeerCommunication, string(ip), port ,socketStatus, peerAddress, cmds); //, string(ip), port,descriptor
+			// launchPeer.detach();
+			handlePeerCommunication(string(ip), port ,socketStatus, peerAddress, cmds);
 		}
 
 		if (find(connectedClients.begin(), connectedClients.end(), fullAddress) != connectedClients.end())

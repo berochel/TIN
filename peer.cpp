@@ -65,7 +65,10 @@ void sendPiece(string ip, int port, string filePath, int startPiece, int endPiec
 		rc -= CHUNK_SIZE;
 
 		int z = sendto(socketStatus, buff, CHUNK_SIZE, 0, (struct sockaddr *)&pAddress, addr_size);
-		//cout << "Sending " << z << " bytes\n";
+		if (z < 0)
+		{
+			cout<<"sendto failed, errno: "<<errno;
+		}
 		rer += z;
 		if (rc == 0)
 			break;
@@ -90,9 +93,7 @@ void getPiece(int seedSocket, string filePath, int fileid, int pieceLocation, so
 	{
 		char *buff = new char[PIECE_SIZE];
 		memset(buff, 0, PIECE_SIZE);
-		//m.lock();
 		n = recvfrom(seedSocket, buff, PIECE_SIZE, 0, (struct sockaddr *)&seedAddress, &addr_size);
-		//m.unlock();
 		fp.write(buff, n);
 		i += n;
 		if (n != 0 && currPiece < prevBitVec.length())
@@ -107,58 +108,56 @@ void getPiece(int seedSocket, string filePath, int fileid, int pieceLocation, so
 	//cout << fileBitVectors[fileid] << " \n";
 }
 
-void listenForConnections()
-{
-	listenSocket = socket(AF_INET6, SOCK_DGRAM, 0);
-	int reuseAddress = 1;
-	int listenSocketOptions = setsockopt(listenSocket, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
-	setsockopt(listenSocket, SOL_SOCKET, SO_REUSEPORT, &reuseAddress, sizeof(reuseAddress));
-	if (listenSocket < 0 || listenSocketOptions < 0)
-	{
-		cout << "Socket creation error \n";
-		return;
-	}
-	int bindStatus = ::bind(listenSocket, (struct sockaddr *)&peerAddress, sizeof(struct sockaddr_in6));
-	if (bindStatus < 0)
-	{
-		cout << ("Bind Failed, errno:%d \n", errno);
-		return;
-	}
+// void listenForConnections()
+// {
+// 	listenSocket = socket(AF_INET6, SOCK_DGRAM, 0);
+// 	int reuseAddress = 1;
+// 	int listenSocketOptions = setsockopt(listenSocket, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
+// 	setsockopt(listenSocket, SOL_SOCKET, SO_REUSEPORT, &reuseAddress, sizeof(reuseAddress));
+// 	if (listenSocket < 0 || listenSocketOptions < 0)
+// 	{
+// 		cout << "Socket creation error \n";
+// 		return;
+// 	}
+// 	int bindStatus = bind(listenSocket, (struct sockaddr *)&peerAddress, sizeof(struct sockaddr_in6));
+// 	if (bindStatus < 0)
+// 	{
+// 		printf("Bind Failed, errno:%d \n", errno);
+// 		return;
+// 	}
 
-	socklen_t addr_size = sizeof(struct sockaddr_in6);
-	while (IS_PEER_OR_SEEDER)
-	{
-		struct sockaddr_in6 clientAddress = {};
-		char tmp[4096] = {0};
-		m.lock();
-		recvfrom(listenSocket, tmp, sizeof(tmp), 0, (struct sockaddr *)&clientAddress, &addr_size);
-		m.unlock();
-		char ip[INET_ADDRSTRLEN];
-		memset(ip, 0, INET_ADDRSTRLEN);
-		inet_ntop(AF_INET6, &(clientAddress.sin6_addr), ip, INET_ADDRSTRLEN);
-		int port = ntohs(clientAddress.sin6_port);
-		string fullAddress = string(ip) + ":" + to_string(port);
-		printf("connection established with peer IP : %s and PORT : %d\n", ip, port);
+// 	socklen_t addr_size = sizeof(struct sockaddr_in6);
+// 	while (IS_PEER_OR_SEEDER)
+// 	{
+// 		struct sockaddr_in6 clientAddress = {};
+// 		char tmp[4096] = {0};
+// 		recvfrom(listenSocket, tmp, sizeof(tmp), 0, (struct sockaddr *)&clientAddress, &addr_size);
+// 		char ip[INET_ADDRSTRLEN];
+// 		memset(ip, 0, INET_ADDRSTRLEN);
+// 		inet_ntop(AF_INET6, &(clientAddress.sin6_addr), ip, INET_ADDRSTRLEN);
+// 		int port = ntohs(clientAddress.sin6_port);
+// 		string fullAddress = string(ip) + ":" + to_string(port);
+// 		printf("connection established with peer IP : %s and PORT : %d\n", ip, port);
 
-		string req = string(tmp);
-		if (req[0] == 'd')
-		{
-			stringstream x(req);
-			string t;
-			vector<string> argsFromPeer;
-			while (getline(x, t, ' '))
-				argsFromPeer.push_back(t);
+// 		string req = string(tmp);
+// 		if (req[0] == 'd')
+// 		{
+// 			stringstream x(req);
+// 			string t;
+// 			vector<string> argsFromPeer;
+// 			while (getline(x, t, ' '))
+// 				argsFromPeer.push_back(t);
 
-			printf("Peer %s:%d requested for %s with piece range from %s-%s\n", ip, port, downloadedFiles[stoi(argsFromPeer[1])].path.c_str(), argsFromPeer[2].c_str(), argsFromPeer[3].c_str());
-			// thread sendDataToPeer(sendPiece, string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), clientAddress, listenSocket);
-			// sendDataToPeer.detach();
-			sendPiece(string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), clientAddress, listenSocket);
-		}
-		else
-			cout << "Invalid command\n";
-	}
-	cout << "Listen stopped\n";
-}
+// 			printf("Peer %s:%d requested for %s with piece range from %s-%s\n", ip, port, downloadedFiles[stoi(argsFromPeer[1])].path.c_str(), argsFromPeer[2].c_str(), argsFromPeer[3].c_str());
+// 			thread sendDataToPeer(sendPiece, string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), clientAddress, listenSocket);
+// 			sendDataToPeer.detach();
+// 			// sendPiece(string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), clientAddress, listenSocket);
+// 		}
+// 		else
+// 			cout << "Invalid command\n";
+// 	}
+// 	return;
+// }
 
 bool getFrequency(string x)
 {
@@ -209,13 +208,12 @@ void startDownload(int fileid, string fileName, string filePath)
 		}
 
 		//d <FILEID> <PIECE RANGE START> <PIECE RANGE END>
-		string sss = "d " + to_string(fileid) + " " + to_string(startPiece) + " " + to_string(endPiece);
+		string sss = "32 " + to_string(fileid) + " " + to_string(startPiece) + " " + to_string(endPiece);
 		cout << "Send DL request to seed " << peerlist[i].ip << ":" << peerlist[i].port << " for file ID " << fileid << endl;
 		sendto(seedSocket, sss.c_str(), sss.length(), 0, (struct sockaddr *)&seedAddress, addr_size);
 
 		thread writeToFile(getPiece, seedSocket, filePath, fileid, startPiece, seedAddress);
 		writeToFile.join();
-		// getPiece(seedSocket, filePath, fileid, startPiece, seedAddress);
 		startPiece = endPiece + 1;
 		endPiece += (chunks / maxConns);
 		if (startPiece >= chunks)
@@ -234,7 +232,7 @@ void startDownload(int fileid, string fileName, string filePath)
 	//cout << string(buffer) << endl;
 	cout << "Download of file " + fileName + " complete\n";
 	//mark as seeder
-	string ss = "o " + to_string(fileid);
+	string ss = "50 " + to_string(fileid);
 	char *buffer = new char[4096];
 	memset(buffer, 0, 4096);
 	sendto(trackerSocket, ss.c_str(), ss.length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
@@ -258,14 +256,7 @@ void startDownload(int fileid, string fileName, string filePath)
 
 	file_properties f(fileid, fileName, fileName, fileUploadPathGroup, totPiece, totalHash, set<peer>());
 	downloadedFiles[fileid] = f;
-	// if (!IS_PEER_OR_SEEDER)
-	// {
-	// 	IS_PEER_OR_SEEDER = true;
-	// 	thread startListenOnPeer(listenForConnections);
-	// 	startListenOnPeer.detach();
-	// 	// listenForConnections();
-	// }
-	//getCommand();
+
 }
 
 int getCommand()
@@ -495,6 +486,109 @@ int getCommand()
 	return 1;
 }
 
+void receiveData()
+{
+	struct sockaddr_in6 recAddress;
+	char ip[INET6_ADDRSTRLEN];
+	int port = ntohs(recAddress.sin6_port);
+	char buffer[4096] = {};
+
+	while(true)
+	{
+		memset(buffer, 0, 4096);
+		m.lock();
+		int valread = recvfrom(trackerSocket, buffer, sizeof(buffer), 0,(struct sockaddr *)&recAddress, &addr_size);
+		m.unlock();
+
+		if (valread > 0)
+			cout << string(buffer) << endl;
+
+		if (string(buffer).substr(0, 3) == "Log")
+		{
+			IS_LOGGED_IN = true;
+			
+		}
+		else if (string(buffer).substr(0, 3) == "30 ")
+		{
+			string fileDetails = string(buffer);
+			fileDetails.erase(0, 3);
+			fileDetails = fileDetails.substr(0, fileDetails.find(" "));
+
+			int totPiece = 0;
+			ifstream ifs(fileUploadPath, ios::binary);
+			string totalHash = "";
+			char *piece = new char[PIECE_SIZE], hash[20]; //change array to unsigned for SHA1
+
+			while (ifs.read((char *)piece, PIECE_SIZE) || ifs.gcount())
+			{
+				//SHA1(piece, strlen((char *)piece), hash);
+				totalHash += string((char *)hash);
+				totPiece++;
+				memset(piece, 0, PIECE_SIZE);
+			}
+
+			file_properties f(stoi(fileDetails), fileUploadPath, fileUploadPath, fileUploadPathGroup, totPiece, totalHash, set<peer>());
+			downloadedFiles[stoi(fileDetails)] = f;
+			if (!IS_PEER_OR_SEEDER)
+			{
+				IS_PEER_OR_SEEDER = true;
+				// thread startListenOnPeer(listenForConnections);
+				// startListenOnPeer.detach();
+				// listenForConnections();
+			}
+		}
+		else if (string(buffer).substr(0, 3)=="32 ")
+		{
+			char ip[INET_ADDRSTRLEN];
+			memset(ip, 0, INET_ADDRSTRLEN);
+			inet_ntop(AF_INET6, &(recAddress.sin6_addr), ip, INET_ADDRSTRLEN);
+			int port = ntohs(recAddress.sin6_port);
+			string fullAddress = string(ip) + ":" + to_string(port);
+			printf("connection established with peer IP : %s and PORT : %d\n", ip, port);
+			stringstream x(buffer);
+			string t;
+			vector<string> argsFromPeer;
+			while (getline(x, t, ' '))
+				argsFromPeer.push_back(t);
+
+			printf("Peer %s:%d requested for %s with piece range from %s-%s\n", ip, port, downloadedFiles[stoi(argsFromPeer[1])].path.c_str(), argsFromPeer[2].c_str(), argsFromPeer[3].c_str());
+			thread sendDataToPeer(sendPiece, string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), recAddress, trackerSocket);
+			sendDataToPeer.detach();
+			// sendPiece(string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), recAddress, trackerSocket);
+		}
+		else if (string(buffer).substr(0, 3)=="31 ")
+		{
+			string b = string(buffer);
+			b.erase(0, 3);
+			stringstream x(b);
+			string t;
+			cout<<"bufor: "<<b<<endl;
+			vector<peer> peerList;
+			int i = 0, fileid = 0;
+			while (getline(x, t, ' ') )
+			{
+				if (i == 0)
+				{
+					fileid = stoi(t);
+				}
+				else
+				{
+					
+					peer ppp(t.substr(0, t.find_last_of(":")), stoi(t.substr(t.find_last_of(":") + 1)), "");
+					peerList.push_back(peer(ppp));
+					cout << "Added seed " << ppp.ip << ":" << ppp.port << endl;
+				}
+				i++;
+			}
+			currentSeederList[fileid] = peerList;
+			//START DOWNLOAD
+			thread startdl(startDownload, fileid, fileDownloadName, fileDownloadPath);
+			startdl.detach();
+			// startDownload( fileid, fileDownloadName, fileDownloadPath);
+		}	
+	}
+}
+
 int main(int argc, char **argv)
 {
 	if (argc < 3)
@@ -531,7 +625,7 @@ int main(int argc, char **argv)
 	char ip[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, &(trackerAddress.sin6_addr), ip, INET6_ADDRSTRLEN);
 	int port = ntohs(trackerAddress.sin6_port);
-	printf("Connecting to: %s, Port: %d\n", ip, port);
+	//printf("Connecting to: %s, Port: %d\n", ip, port);
 	
 	char buffer[4096] = {0};
 	string syncActual = "sync " + string(argv[1]) + " ";
@@ -548,6 +642,9 @@ int main(int argc, char **argv)
 	inet_pton(AF_INET6, argv[1], &(peerAddress.sin6_addr));
 	peerAddress.sin6_port = htons(temp);
 
+	thread read(receiveData);
+	read.detach();
+
 	while (true)
 	{
 		memset(buffer, 0, 4096);
@@ -555,15 +652,8 @@ int main(int argc, char **argv)
 		if (cmdFlag == 0 || command_string == "")
 			continue;
 		command_string+=' ' + LOGIN_ID;
-
 		sendto(trackerSocket, command_string.c_str(), (command_string).length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
 		command_string = "";
-		m.lock();
-		int valread = recvfrom(trackerSocket, buffer, sizeof(buffer), 0,(struct sockaddr *)&trackerAddress, &addr_size);
-		m.unlock();
-		command_string = "";
-		cout << string(buffer) << endl;
-		
 
 		if (cmdFlag == 100)
 		{
@@ -571,70 +661,6 @@ int main(int argc, char **argv)
 			IS_LOGGED_IN = false;
 			break;
 		}
-		else if (cmdFlag == 10 && string(buffer).substr(0, 3) == "Log")
-		{
-			IS_LOGGED_IN = true;
-			
-		}
-		else if (cmdFlag == 20 && isdigit(string(buffer)[0]))
-		{
-			string fileDetails = string(buffer);
-			fileDetails = fileDetails.substr(0, fileDetails.find(" "));
-
-			int totPiece = 0;
-			ifstream ifs(fileUploadPath, ios::binary);
-			string totalHash = "";
-			char *piece = new char[PIECE_SIZE], hash[20]; //change array to unsigned for SHA1
-
-			while (ifs.read((char *)piece, PIECE_SIZE) || ifs.gcount())
-			{
-				//SHA1(piece, strlen((char *)piece), hash);
-				totalHash += string((char *)hash);
-				totPiece++;
-				memset(piece, 0, PIECE_SIZE);
-			}
-
-			file_properties f(stoi(fileDetails), fileUploadPath, fileUploadPath, fileUploadPathGroup, totPiece, totalHash, set<peer>());
-			downloadedFiles[stoi(fileDetails)] = f;
-			if (!IS_PEER_OR_SEEDER)
-			{
-				IS_PEER_OR_SEEDER = true;
-				thread startListenOnPeer(listenForConnections);
-				startListenOnPeer.detach();
-				// listenForConnections();
-			}
-		}
-		else if (cmdFlag == 30 && isdigit(string(buffer)[0]))
-		{
-			string b = string(buffer);
-			
-			stringstream x(b);
-			string t;
-			vector<peer> peerList;
-			int i = 0, fileid = 0;
-			while (getline(x, t, ' '))
-			{
-
-				if (i == 0)
-				{
-					fileid = stoi(t);
-				}
-				else
-				{
-					
-					peer ppp(t.substr(0, t.find_last_of(":")), stoi(t.substr(t.find_last_of(":") + 1)), "");
-					peerList.push_back(peer(ppp));
-					cout << "Added seed " << ppp.ip << ":" << ppp.port << endl;
-				}
-				i++;
-			}
-			currentSeederList[fileid] = peerList;
-
-			//START DOWNLOAD
-			thread startdl(startDownload, fileid, fileDownloadName, fileDownloadPath);
-			startdl.detach();
-			// startDownload( fileid, fileDownloadName, fileDownloadPath);
-		}	
 	}
 
 	return 0;
