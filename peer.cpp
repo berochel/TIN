@@ -14,10 +14,11 @@
 #include <vector>
 #include <map>
 #include <sstream>
+#include <mutex>
 #include "ClassDefinitions.h"
 
 bool IS_LOGGED_IN = false;
-bool LOGIN_ID = "";
+string LOGIN_ID = "0";
 bool IS_PEER_OR_SEEDER = false;
 int listenSocket;
 int trackerSocket;
@@ -29,14 +30,17 @@ string fileDownloadPath = "";
 string fileDownloadName = "";
 struct sockaddr_in6 trackerAddress, peerAddress;
 addrinfo *tracker, *peer_own;
+std::mutex m;
 
 map<int, file_properties> downloadedFiles;
 map<int, string> fileBitVectors;		  //file ID,bit vector
 map<int, vector<peer>> currentSeederList; //file ID,peer
 
+socklen_t addr_size = sizeof(struct sockaddr_in6);
+
 using namespace std; //DOWNLOAD FORMAT = d <FILEID> <PIECE RANGE START> <PIECE RANGE END>
 
-void sendPiece(string ip, int port, int acc, string filePath, int startPiece, int endPiece)
+void sendPiece(string ip, int port, string filePath, int startPiece, int endPiece, sockaddr_in6 pAddress, int socketStatus)
 {
 	ifstream fp(filePath, ios::in | ios::binary);
 	struct stat sb;
@@ -59,23 +63,26 @@ void sendPiece(string ip, int port, int acc, string filePath, int startPiece, in
 	while (fp.tellg() <= endPiece * PIECE_SIZE && fp.read(buff, CHUNK_SIZE))
 	{
 		rc -= CHUNK_SIZE;
-		int z = send(acc, buff, CHUNK_SIZE, 0);
-		//cout << "Sending " << z << " bytes\n";
+
+		int z = sendto(socketStatus, buff, CHUNK_SIZE, 0, (struct sockaddr *)&pAddress, addr_size);
+		if (z < 0)
+		{
+			cout<<"sendto failed, errno: "<<errno;
+		}
 		rer += z;
 		if (rc == 0)
 			break;
 		if (rc < CHUNK_SIZE)
 			CHUNK_SIZE = rc;
 	}
+	sendto(socketStatus, buff, 0, 0, (struct sockaddr *)&pAddress, addr_size);
 	cout << fp.tellg() << endl;
 	fp.close();
 	cout << "Sent " << rer << " bytes to " << ip << ":" << port << endl;
-	int sta = close(acc);
-	if (sta == 0)
-		cout << "Connection closed with " << ip << ":" << port << endl;
+	IS_PEER_OR_SEEDER=false;
 }
 
-void getPiece(int seedSocket, string filePath, int fileid, int pieceLocation)
+void getPiece(int seedSocket, string filePath, int fileid, int pieceLocation, sockaddr_in6 seedAddress)
 {
 	ofstream fp(filePath, ios::out | ios::binary | ios::app);
 	fp.seekp(PIECE_SIZE * pieceLocation, ios::beg);
@@ -86,7 +93,7 @@ void getPiece(int seedSocket, string filePath, int fileid, int pieceLocation)
 	{
 		char *buff = new char[PIECE_SIZE];
 		memset(buff, 0, PIECE_SIZE);
-		n = read(seedSocket, buff, PIECE_SIZE);
+		n = recvfrom(seedSocket, buff, PIECE_SIZE, 0, (struct sockaddr *)&seedAddress, &addr_size);
 		fp.write(buff, n);
 		i += n;
 		if (n != 0 && currPiece < prevBitVec.length())
@@ -94,70 +101,63 @@ void getPiece(int seedSocket, string filePath, int fileid, int pieceLocation)
 		//cout << "Wrote " << n << " bytes\n";
 	} while (n > 0);
 	cout << "Wrote " << i << " bytes\n";
-	cout << filePath;
+	//cout << filePath;
 	//prevBitVec[pieceLocation] = '1';
 	fileBitVectors[fileid] = prevBitVec;
 	fp.close();
 	//cout << fileBitVectors[fileid] << " \n";
 }
 
-void listenForConnections()
-{
-	listenSocket = socket(AF_INET6, SOCK_STREAM, 0);
-	int reuseAddress = 1;
-	int listenSocketOptions = setsockopt(listenSocket, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
-	setsockopt(listenSocket, SOL_SOCKET, SO_REUSEPORT, &reuseAddress, sizeof(reuseAddress));
-	if (listenSocket < 0 || listenSocketOptions < 0)
-	{
-		cout << "Socket creation error \n";
-		return;
-	}
-	int bindStatus = ::bind(listenSocket, (struct sockaddr *)&peerAddress, sizeof(struct sockaddr_in6));
-	if (bindStatus < 0)
-	{
-		cout << ("Bind Failed \n");
-		return;
-	}
-	if (listen(listenSocket, 3) < 0)
-	{
-		cout << ("Listen Failed \n");
-		return;
-	}
-	char ip[INET_ADDRSTRLEN];
-	inet_ntop(AF_INET6, &(peerAddress.sin6_addr), ip, INET_ADDRSTRLEN);
-	int port = ntohs(peerAddress.sin6_port);
-	printf("Listen started on %s:%d\n", ip, port);
+// void listenForConnections()
+// {
+// 	listenSocket = socket(AF_INET6, SOCK_DGRAM, 0);
+// 	int reuseAddress = 1;
+// 	int listenSocketOptions = setsockopt(listenSocket, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
+// 	setsockopt(listenSocket, SOL_SOCKET, SO_REUSEPORT, &reuseAddress, sizeof(reuseAddress));
+// 	if (listenSocket < 0 || listenSocketOptions < 0)
+// 	{
+// 		cout << "Socket creation error \n";
+// 		return;
+// 	}
+// 	int bindStatus = bind(listenSocket, (struct sockaddr *)&peerAddress, sizeof(struct sockaddr_in6));
+// 	if (bindStatus < 0)
+// 	{
+// 		printf("Bind Failed, errno:%d \n", errno);
+// 		return;
+// 	}
 
-	socklen_t addr_size = sizeof(struct sockaddr_in6);
-	while (IS_PEER_OR_SEEDER)
-	{
-		memset(ip, 0, INET_ADDRSTRLEN);
-		struct sockaddr_in6 clientAddress;
-		int acc = accept(listenSocket, (struct sockaddr *)&clientAddress, &addr_size);
-		inet_ntop(AF_INET6, &(clientAddress.sin6_addr), ip, INET_ADDRSTRLEN);
-		port = ntohs(clientAddress.sin6_port);
-		string fullAddress = string(ip) + ":" + to_string(port);
-		printf("connection established with peer IP : %s and PORT : %d\n", ip, port);
-		char tmp[4096] = {0};
-		recv(acc, tmp, sizeof(tmp), 0);
-		string req = string(tmp);
-		if (req[0] == 'd')
-		{
-			stringstream x(req);
-			string t;
-			vector<string> argsFromPeer;
-			while (getline(x, t, ' '))
-				argsFromPeer.push_back(t);
+// 	socklen_t addr_size = sizeof(struct sockaddr_in6);
+// 	while (IS_PEER_OR_SEEDER)
+// 	{
+// 		struct sockaddr_in6 clientAddress = {};
+// 		char tmp[4096] = {0};
+// 		recvfrom(listenSocket, tmp, sizeof(tmp), 0, (struct sockaddr *)&clientAddress, &addr_size);
+// 		char ip[INET_ADDRSTRLEN];
+// 		memset(ip, 0, INET_ADDRSTRLEN);
+// 		inet_ntop(AF_INET6, &(clientAddress.sin6_addr), ip, INET_ADDRSTRLEN);
+// 		int port = ntohs(clientAddress.sin6_port);
+// 		string fullAddress = string(ip) + ":" + to_string(port);
+// 		printf("connection established with peer IP : %s and PORT : %d\n", ip, port);
 
-			printf("Peer %s:%d requested for %s with piece range from %s-%s\n", ip, port, downloadedFiles[stoi(argsFromPeer[1])].path.c_str(), argsFromPeer[2].c_str(), argsFromPeer[3].c_str());
-			thread sendDataToPeer(sendPiece, string(ip), port, acc, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]));
-			sendDataToPeer.detach();
-		}
-		else
-			cout << "Invalid command\n";
-	}
-	cout << "Listen stopped\n";
-}
+// 		string req = string(tmp);
+// 		if (req[0] == 'd')
+// 		{
+// 			stringstream x(req);
+// 			string t;
+// 			vector<string> argsFromPeer;
+// 			while (getline(x, t, ' '))
+// 				argsFromPeer.push_back(t);
+
+// 			printf("Peer %s:%d requested for %s with piece range from %s-%s\n", ip, port, downloadedFiles[stoi(argsFromPeer[1])].path.c_str(), argsFromPeer[2].c_str(), argsFromPeer[3].c_str());
+// 			thread sendDataToPeer(sendPiece, string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), clientAddress, listenSocket);
+// 			sendDataToPeer.detach();
+// 			// sendPiece(string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), clientAddress, listenSocket);
+// 		}
+// 		else
+// 			cout << "Invalid command\n";
+// 	}
+// 	return;
+// }
 
 bool getFrequency(string x)
 {
@@ -200,31 +200,19 @@ void startDownload(int fileid, string fileName, string filePath)
 		seedAddress.sin6_port = htons(peerlist[i].port);
 		inet_pton(AF_INET6, peerlist[i].ip.c_str(), &(seedAddress.sin6_addr));
 
-		int seedSocket = socket(AF_INET6, SOCK_STREAM, 0);
-		setsockopt(seedSocket, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
-		setsockopt(seedSocket, SOL_SOCKET, SO_REUSEPORT, &reuseAddress, sizeof(reuseAddress));
+		int seedSocket = socket(AF_INET6, SOCK_DGRAM, 0);
 		if (seedSocket < 0)
 		{
 			cout << "Unable to download. Socket creation error \n";
 			return;
 		}
-		int trackerConnectStatus = connect(seedSocket, (struct sockaddr *)&seedAddress, sizeof(seedAddress));
-		if (trackerConnectStatus < 0)
-		{
-			char ip[INET6_ADDRSTRLEN];
-			inet_ntop(AF_INET6, &(seedAddress.sin6_addr), ip, INET6_ADDRSTRLEN);
-			int port = ntohs(seedAddress.sin6_port);
-
-			cout << "Tracker connection Failed with seeder IP: " << ip << " and port: " << port << "\n";
-			return;
-		}
 
 		//d <FILEID> <PIECE RANGE START> <PIECE RANGE END>
-		string sss = "d " + to_string(fileid) + " " + to_string(startPiece) + " " + to_string(endPiece);
+		string sss = "32 " + to_string(fileid) + " " + to_string(startPiece) + " " + to_string(endPiece);
 		cout << "Send DL request to seed " << peerlist[i].ip << ":" << peerlist[i].port << " for file ID " << fileid << endl;
-		send(seedSocket, sss.c_str(), sss.length(), 0);
+		sendto(seedSocket, sss.c_str(), sss.length(), 0, (struct sockaddr *)&seedAddress, addr_size);
 
-		thread writeToFile(getPiece, seedSocket, filePath, fileid, startPiece);
+		thread writeToFile(getPiece, seedSocket, filePath, fileid, startPiece, seedAddress);
 		writeToFile.join();
 		startPiece = endPiece + 1;
 		endPiece += (chunks / maxConns);
@@ -244,11 +232,13 @@ void startDownload(int fileid, string fileName, string filePath)
 	//cout << string(buffer) << endl;
 	cout << "Download of file " + fileName + " complete\n";
 	//mark as seeder
-	string ss = "o " + to_string(fileid);
+	string ss = "50 " + to_string(fileid);
 	char *buffer = new char[4096];
 	memset(buffer, 0, 4096);
-	send(trackerSocket, ss.c_str(), ss.length(), 0);
-	read(trackerSocket, buffer, 4096);
+	sendto(trackerSocket, ss.c_str(), ss.length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
+	m.lock();
+	recvfrom(trackerSocket, buffer, sizeof(buffer), 0, (struct sockaddr *)&trackerAddress, &addr_size);
+	m.unlock();
 	cout << string(buffer) << endl;
 
 	int totPiece = 0;
@@ -266,18 +256,13 @@ void startDownload(int fileid, string fileName, string filePath)
 
 	file_properties f(fileid, fileName, fileName, fileUploadPathGroup, totPiece, totalHash, set<peer>());
 	downloadedFiles[fileid] = f;
-	if (!IS_PEER_OR_SEEDER)
-	{
-		IS_PEER_OR_SEEDER = true;
-		thread startListenOnPeer(listenForConnections);
-		startListenOnPeer.detach();
-	}
-	//getCommand();
+
 }
 
 int getCommand()
 {
 	string s, t;
+	command_string="";
 	getline(cin, s);
 	if (s == "" || s == "\n")
 		return 0;
@@ -294,7 +279,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "a " + cmds[1] + " " + cmds[2];
+		command_string = "10 " + cmds[1] + " " + cmds[2];
 	}
 	else if (cmds[0] == "login")
 	{
@@ -308,7 +293,8 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "b " + cmds[1] + " " + cmds[2];
+		LOGIN_ID = cmds[1];
+		command_string = "11 " + cmds[1] + " " + cmds[2];
 		return 10;
 	}
 	else if (cmds[0] == "create_group")
@@ -323,7 +309,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "c " + cmds[1];
+		command_string = "20 " + cmds[1];
 	}
 	else if (cmds[0] == "join_group")
 	{
@@ -337,7 +323,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "d " + cmds[1];
+		command_string = "21 " + cmds[1];
 	}
 	else if (cmds[0] == "leave_group")
 	{
@@ -351,7 +337,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "e " + cmds[1];
+		command_string = "29 " + cmds[1];
 	}
 	else if (cmds[0] == "list_requests")
 	{
@@ -365,7 +351,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "f " + cmds[1];
+		command_string = "42 " + cmds[1];
 	}
 	else if (cmds[0] == "accept_request")
 	{
@@ -379,7 +365,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "g " + cmds[1] + " " + cmds[2];
+		command_string = "43 " + cmds[1] + " " + cmds[2];
 	}
 	else if (cmds[0] == "list_groups")
 	{
@@ -388,7 +374,7 @@ int getCommand()
 			cout << "User is not logged in\n";
 			return 0;
 		}
-		command_string = "h";
+		command_string = "22";
 	}
 	else if (cmds[0] == "list_files")
 	{
@@ -402,7 +388,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "i " + cmds[1];
+		command_string = "32 " + cmds[1];
 	}
 	else if (cmds[0] == "upload_file")
 	{
@@ -430,7 +416,7 @@ int getCommand()
 		if (FILE *file = fopen(filePath.c_str(), "r"))
 		{
 			fclose(file);
-			command_string = "j " + filePath + " " + cmds[2];
+			command_string = "30 " + filePath + " " + cmds[2];
 			cout << command_string << endl;
 			fileUploadPath = filePath;
 			fileUploadPathGroup = cmds[2];
@@ -454,7 +440,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "k " + cmds[1] + " " + cmds[2] + " " + cmds[3];
+		command_string = "31 " + cmds[1] + " " + cmds[2] + " " + cmds[3];
 		fileUploadPathGroup = cmds[1];
 		fileDownloadName = cmds[2];
 		fileDownloadPath = cmds[3];
@@ -466,7 +452,7 @@ int getCommand()
 		{
 			cout << "User is not logged in but quitting anyway\n";
 		}
-		command_string = "l";
+		command_string = "19";
 		return 100;
 	}
 	else if (cmds[0] == "show_downloads")
@@ -476,7 +462,7 @@ int getCommand()
 			cout << "User is not logged in\n";
 			return 0;
 		}
-		command_string = "m";
+		command_string = "35";
 	}
 	else if (cmds[0] == "stop_share")
 	{
@@ -490,7 +476,7 @@ int getCommand()
 			cout << "Too few parameters\n";
 			return 0;
 		}
-		command_string = "n " + cmds[1] + " " + cmds[2];
+		command_string = "39 " + cmds[1] + " " + cmds[2];
 	}
 	else
 	{
@@ -500,92 +486,32 @@ int getCommand()
 	return 1;
 }
 
-int main(int argc, char **argv)
+void receiveData()
 {
-	if (argc < 3)
-	{
-		cout << "Parameters not provided.Exiting...\n";
-		return -1;
-	}
-	int reuseAddress = 1;
-	ifstream trackInfo(argv[2]);
-	string ix, px;
-	trackInfo >> ix >> px;
-	trackInfo.close();
-	
-	
-	trackerAddress.sin6_family = AF_INET6;
-	trackerAddress.sin6_port = htons(stoi(px));
-	inet_pton(AF_INET6, ix.c_str(), &(trackerAddress.sin6_addr));
-
-	
-	trackerSocket = socket(AF_INET6, SOCK_STREAM, 0);
-	int listenSocketOptions = setsockopt(trackerSocket, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
-	setsockopt(trackerSocket, SOL_SOCKET, SO_REUSEPORT, &reuseAddress, sizeof(reuseAddress));
-	
-	if (trackerSocket < 0 || listenSocketOptions < 0)
-	{
-		cout << "Socket creation error \n";
-		return -1;
-	
-	}
-
-	int trackerConnectStatus = connect(trackerSocket, (struct sockaddr *)&trackerAddress, sizeof(trackerAddress));
-	
-	if (trackerConnectStatus < 0)
-	{
-		cout << ("Tracker connection Failed \n");
-		return -1;
-	}
-
+	struct sockaddr_in6 recAddress;
 	char ip[INET6_ADDRSTRLEN];
-	inet_ntop(AF_INET6, &(trackerAddress.sin6_addr), ip, INET6_ADDRSTRLEN);
-	int port = ntohs(trackerAddress.sin6_port);
-	printf("Connecting to: %s, Port: %d\n", ip, port);
+	int port = ntohs(recAddress.sin6_port);
+	char buffer[4096] = {};
 
-
-	char buffer[4096] = {0};
-	int valread = read(trackerSocket, buffer, 4096);
-	cout << string(buffer) << endl;
-
-	string s_temp(buffer);
-	int temp = stoi(s_temp.substr(s_temp.find_last_of(":") + 1));
-
-	peerAddress.sin6_family = AF_INET6;
-	inet_pton(AF_INET6, argv[1], &(peerAddress.sin6_addr));
-	peerAddress.sin6_port = htons(temp);
-
-	string syncActual = "sync " + string(argv[1]) + " ";
-	send(trackerSocket, syncActual.c_str(), syncActual.length(), 0);
-
-	while (true)
+	while(true)
 	{
 		memset(buffer, 0, 4096);
-		int cmdFlag = getCommand();
-		if (cmdFlag == 0 || command_string == "")
-			continue;
-		
+		m.lock();
+		int valread = recvfrom(trackerSocket, buffer, sizeof(buffer), 0,(struct sockaddr *)&recAddress, &addr_size);
+		m.unlock();
 
-		send(trackerSocket, command_string.c_str(), (command_string).length(), 0);
-		command_string = "";
-		valread = read(trackerSocket, buffer, 4096);
-		cout << string(buffer) << endl;
-		
+		if (valread > 0)
+			cout << string(buffer) << endl;
 
-		if (cmdFlag == 100)
-		{
-			IS_PEER_OR_SEEDER = false;
-			IS_LOGGED_IN = false;
-			break;
-		}
-		else if (cmdFlag == 10 && string(buffer).substr(0, 3) == "Log")
+		if (string(buffer).substr(0, 3) == "Log")
 		{
 			IS_LOGGED_IN = true;
 			
 		}
-		else if (cmdFlag == 20 && isdigit(string(buffer)[0]))
+		else if (string(buffer).substr(0, 3) == "30 ")
 		{
 			string fileDetails = string(buffer);
+			fileDetails.erase(0, 3);
 			fileDetails = fileDetails.substr(0, fileDetails.find(" "));
 
 			int totPiece = 0;
@@ -606,21 +532,41 @@ int main(int argc, char **argv)
 			if (!IS_PEER_OR_SEEDER)
 			{
 				IS_PEER_OR_SEEDER = true;
-				thread startListenOnPeer(listenForConnections);
-				startListenOnPeer.detach();
+				// thread startListenOnPeer(listenForConnections);
+				// startListenOnPeer.detach();
+				// listenForConnections();
 			}
 		}
-		else if (cmdFlag == 30 && isdigit(string(buffer)[0]))
+		else if (string(buffer).substr(0, 3)=="32 ")
+		{
+			char ip[INET_ADDRSTRLEN];
+			memset(ip, 0, INET_ADDRSTRLEN);
+			inet_ntop(AF_INET6, &(recAddress.sin6_addr), ip, INET_ADDRSTRLEN);
+			int port = ntohs(recAddress.sin6_port);
+			string fullAddress = string(ip) + ":" + to_string(port);
+			printf("connection established with peer IP : %s and PORT : %d\n", ip, port);
+			stringstream x(buffer);
+			string t;
+			vector<string> argsFromPeer;
+			while (getline(x, t, ' '))
+				argsFromPeer.push_back(t);
+
+			printf("Peer %s:%d requested for %s with piece range from %s-%s\n", ip, port, downloadedFiles[stoi(argsFromPeer[1])].path.c_str(), argsFromPeer[2].c_str(), argsFromPeer[3].c_str());
+			thread sendDataToPeer(sendPiece, string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), recAddress, trackerSocket);
+			sendDataToPeer.detach();
+			// sendPiece(string(ip), port, downloadedFiles[stoi(argsFromPeer[1])].path, stoi(argsFromPeer[2]), stoi(argsFromPeer[3]), recAddress, trackerSocket);
+		}
+		else if (string(buffer).substr(0, 3)=="31 ")
 		{
 			string b = string(buffer);
-			
+			b.erase(0, 3);
 			stringstream x(b);
 			string t;
+			cout<<"bufor: "<<b<<endl;
 			vector<peer> peerList;
 			int i = 0, fileid = 0;
-			while (getline(x, t, ' '))
+			while (getline(x, t, ' ') )
 			{
-
 				if (i == 0)
 				{
 					fileid = stoi(t);
@@ -635,10 +581,85 @@ int main(int argc, char **argv)
 				i++;
 			}
 			currentSeederList[fileid] = peerList;
-
 			//START DOWNLOAD
 			thread startdl(startDownload, fileid, fileDownloadName, fileDownloadPath);
 			startdl.detach();
+			// startDownload( fileid, fileDownloadName, fileDownloadPath);
+		}	
+	}
+}
+
+int main(int argc, char **argv)
+{
+	if (argc < 3)
+	{
+		cout << "Parameters not provided.Exiting...\n";
+		return -1;
+	}
+	int reuseAddress = 1;
+	ifstream trackInfo(argv[2]);
+	string ix, px;
+	trackInfo >> ix >> px;
+	trackInfo.close();
+	
+	socklen_t addr_size = sizeof(struct sockaddr_in6);
+
+	
+	trackerAddress.sin6_family = AF_INET6;
+	trackerAddress.sin6_port = htons(stoi(px));
+	inet_pton(AF_INET6, ix.c_str(), &(trackerAddress.sin6_addr));
+
+	
+	trackerSocket = socket(AF_INET6, SOCK_DGRAM, 0);
+	int listenSocketOptions = setsockopt(trackerSocket, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
+	setsockopt(trackerSocket, SOL_SOCKET, SO_REUSEPORT, &reuseAddress, sizeof(reuseAddress));
+	
+	if (trackerSocket < 0 || listenSocketOptions < 0)
+	{
+		cout << "Socket creation error \n";
+		return -1;
+	
+	}
+
+
+	char ip[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, &(trackerAddress.sin6_addr), ip, INET6_ADDRSTRLEN);
+	int port = ntohs(trackerAddress.sin6_port);
+	//printf("Connecting to: %s, Port: %d\n", ip, port);
+	
+	char buffer[4096] = {0};
+	string syncActual = "sync " + string(argv[1]) + " ";
+	sendto(trackerSocket, syncActual.c_str(), syncActual.length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
+
+	buffer[4096] = {0};
+	m.lock();
+	recvfrom(trackerSocket,buffer, sizeof(buffer), 0, (struct sockaddr *)&trackerAddress, &addr_size);
+	m.unlock();
+	string s_temp(buffer);
+	int temp = stoi(s_temp.substr(s_temp.find_last_of(":") + 1));
+
+	peerAddress.sin6_family = AF_INET6;
+	inet_pton(AF_INET6, argv[1], &(peerAddress.sin6_addr));
+	peerAddress.sin6_port = htons(temp);
+
+	thread read(receiveData);
+	read.detach();
+
+	while (true)
+	{
+		memset(buffer, 0, 4096);
+		int cmdFlag = getCommand();
+		if (cmdFlag == 0 || command_string == "")
+			continue;
+		command_string+=' ' + LOGIN_ID;
+		sendto(trackerSocket, command_string.c_str(), (command_string).length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
+		command_string = "";
+
+		if (cmdFlag == 100)
+		{
+			IS_PEER_OR_SEEDER = false;
+			IS_LOGGED_IN = false;
+			break;
 		}
 	}
 
