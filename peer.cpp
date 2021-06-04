@@ -15,6 +15,7 @@
 #include <map>
 #include <sstream>
 #include <mutex>
+//#include <boost/python.hpp>
 #include "ClassDefinitions.h"
 
 bool IS_LOGGED_IN = false;
@@ -39,6 +40,21 @@ map<int, vector<peer>> currentSeederList; //file ID,peer
 socklen_t addr_size = sizeof(struct sockaddr_in6);
 
 using namespace std; //DOWNLOAD FORMAT = d <FILEID> <PIECE RANGE START> <PIECE RANGE END>
+
+//Boost python wrapper
+/*
+BOOST_PYTHON_MODULE(libpeer)
+{
+    using namespace boost::python;
+    def("getCommand", getCommand);
+		def("greet", greet);
+}
+*/
+
+const char* greet()
+{
+    return "hello, world!";
+}
 
 void sendPiece(string ip, int port, string filePath, int startPiece, int endPiece, sockaddr_in6 pAddress, int socketStatus)
 {
@@ -406,7 +422,7 @@ int getCommand()
 		string filePath = "";
 		getcwd(path, 4096);
 
-		
+
 
 		if (cmds[1][0] != '~')
 		{
@@ -423,7 +439,7 @@ int getCommand()
 			return 20;
 		}
 		else
-		{	
+		{
 			cout << "File not found\n";
 			return 0;
 		}
@@ -506,7 +522,7 @@ void receiveData()
 		if (string(buffer).substr(0, 3) == "Log")
 		{
 			IS_LOGGED_IN = true;
-			
+
 		}
 		else if (string(buffer).substr(0, 3) == "30 ")
 		{
@@ -573,7 +589,7 @@ void receiveData()
 				}
 				else
 				{
-					
+
 					peer ppp(t.substr(0, t.find_last_of(":")), stoi(t.substr(t.find_last_of(":") + 1)), "");
 					peerList.push_back(peer(ppp));
 					cout << "Added seed " << ppp.ip << ":" << ppp.port << endl;
@@ -585,7 +601,7 @@ void receiveData()
 			thread startdl(startDownload, fileid, fileDownloadName, fileDownloadPath);
 			startdl.detach();
 			// startDownload( fileid, fileDownloadName, fileDownloadPath);
-		}	
+		}
 	}
 }
 
@@ -601,24 +617,24 @@ int main(int argc, char **argv)
 	string ix, px;
 	trackInfo >> ix >> px;
 	trackInfo.close();
-	
+
 	socklen_t addr_size = sizeof(struct sockaddr_in6);
 
-	
+
 	trackerAddress.sin6_family = AF_INET6;
 	trackerAddress.sin6_port = htons(stoi(px));
 	inet_pton(AF_INET6, ix.c_str(), &(trackerAddress.sin6_addr));
 
-	
+
 	trackerSocket = socket(AF_INET6, SOCK_DGRAM, 0);
 	int listenSocketOptions = setsockopt(trackerSocket, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
 	setsockopt(trackerSocket, SOL_SOCKET, SO_REUSEPORT, &reuseAddress, sizeof(reuseAddress));
-	
+
 	if (trackerSocket < 0 || listenSocketOptions < 0)
 	{
 		cout << "Socket creation error \n";
 		return -1;
-	
+
 	}
 
 
@@ -626,7 +642,7 @@ int main(int argc, char **argv)
 	inet_ntop(AF_INET6, &(trackerAddress.sin6_addr), ip, INET6_ADDRSTRLEN);
 	int port = ntohs(trackerAddress.sin6_port);
 	//printf("Connecting to: %s, Port: %d\n", ip, port);
-	
+
 	char buffer[4096] = {0};
 	string syncActual = "sync " + string(argv[1]) + " ";
 	sendto(trackerSocket, syncActual.c_str(), syncActual.length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
