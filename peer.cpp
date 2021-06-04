@@ -294,11 +294,6 @@ int checkIfUserNotLoggedIn()
   }
 }
 
-constexpr unsigned int str2int(const char* str, int h = 0)
-{
-    return !str[h] ? 5381 : (str2int(str, h+1) * 33) ^ str[h];
-}
-
 enum commands
 {
   create_user = 10,
@@ -326,11 +321,13 @@ int getCommand()
 		return 0;
 	stringstream commandLine(consoleInput);
 	vector<string> cmds;
+
   // seperate commands
 	while (getline(commandLine, command, ' '))
 	{
 		cmds.push_back(command);
 	}
+
   // check which command to do
 	if (cmds[0] == "create_user")
 	{
@@ -428,10 +425,7 @@ int getCommand()
 	}
 	else if (cmds[0] == "logout")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in but quitting anyway\n";
-		}
+		if (!IS_LOGGED_IN) cout << "User is not logged in, quitting anyway\n";
 		command_string = "19";
 		return 100;
 	}
@@ -571,7 +565,6 @@ int main(int argc, char **argv)
 
 	socklen_t addr_size = sizeof(struct sockaddr_in6);
 
-
 	trackerAddress.sin6_family = AF_INET6;
 	trackerAddress.sin6_port = htons(stoi(px));
 	inet_pton(AF_INET6, ix.c_str(), &(trackerAddress.sin6_addr));
@@ -585,9 +578,7 @@ int main(int argc, char **argv)
 	{
 		cout << "Socket creation error \n";
 		return -1;
-
 	}
-
 
 	char ip[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, &(trackerAddress.sin6_addr), ip, INET6_ADDRSTRLEN);
