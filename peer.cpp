@@ -15,7 +15,6 @@
 #include <map>
 #include <sstream>
 #include <mutex>
-//#include <boost/python.hpp>
 #include "ClassDefinitions.h"
 
 bool IS_LOGGED_IN = false;
@@ -40,21 +39,6 @@ map<int, vector<peer>> currentSeederList; //file ID,peer
 socklen_t addr_size = sizeof(struct sockaddr_in6);
 
 using namespace std; //DOWNLOAD FORMAT = d <FILEID> <PIECE RANGE START> <PIECE RANGE END>
-
-//Boost python wrapper
-/*
-BOOST_PYTHON_MODULE(libpeer)
-{
-    using namespace boost::python;
-    def("getCommand", getCommand);
-		def("greet", greet);
-}
-*/
-
-const char* greet()
-{
-    return "hello, world!";
-}
 
 void sendPiece(string ip, int port, string filePath, int startPiece, int endPiece, sockaddr_in6 pAddress, int socketStatus)
 {
@@ -275,160 +259,148 @@ void startDownload(int fileid, string fileName, string filePath)
 
 }
 
+int checkNumberOfArguments(int actual, int expected)
+{
+  if (actual == expected) return 1;
+  else if (actual < expected)
+  {
+    cout << "Too few parameters\n";
+    return 0;
+  }
+  else if (actual > expected)
+  {
+    cout << "Too many parameters\n";
+    return 0;
+  }
+}
+
+int checkIfUserLoggedIn()
+{
+  if (!IS_LOGGED_IN) return 1;
+  else
+  {
+    cout << "Already logged in.\n";
+    return 0;
+  }
+}
+
+int checkIfUserNotLoggedIn()
+{
+  if (IS_LOGGED_IN) return 1;
+  else
+  {
+    cout << "User not logged in.\n";
+    return 0;
+  }
+}
+
+constexpr unsigned int str2int(const char* str, int h = 0)
+{
+    return !str[h] ? 5381 : (str2int(str, h+1) * 33) ^ str[h];
+}
+
+enum commands
+{
+  create_user = 10,
+  login = 11,
+  create_group = 20,
+  join_group = 21,
+  leave_group = 29,
+  list_requests = 42,
+  accept_request = 43,
+  list_groups = 22,
+  list_files = 32,
+  upload_file = 30,
+  download_file = 31,
+  logout = 19,
+  show_downloads = 35,
+  stop_share = 39
+};
+
 int getCommand()
 {
-	string s, t;
-	command_string="";
-	getline(cin, s);
-	if (s == "" || s == "\n")
+	string consoleInput, command;
+	command_string = "";
+	getline(cin, consoleInput);
+	if (consoleInput == "" || consoleInput == "\n")
 		return 0;
-	stringstream x(s);
+	stringstream commandLine(consoleInput);
 	vector<string> cmds;
-	while (getline(x, t, ' '))
+  // seperate commands
+	while (getline(commandLine, command, ' '))
 	{
-		cmds.push_back(t);
+		cmds.push_back(command);
 	}
+  // check which command to do
 	if (cmds[0] == "create_user")
 	{
-		if (cmds.size() < 3)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkNumberOfArguments(cmds.size(), 3) == 0) return 0;
 		command_string = "10 " + cmds[1] + " " + cmds[2];
 	}
 	else if (cmds[0] == "login")
 	{
-		if (IS_LOGGED_IN)
-		{
-			cout << "Already logged in.\n";
-			return 0;
-		}
-		if (cmds.size() < 3)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+    if (checkIfUserLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 3) == 0) return 0;
 		LOGIN_ID = cmds[1];
 		command_string = "11 " + cmds[1] + " " + cmds[2];
 		return 10;
 	}
 	else if (cmds[0] == "create_group")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 2)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 2) == 0) return 0;
 		command_string = "20 " + cmds[1];
 	}
 	else if (cmds[0] == "join_group")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 2)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 2) == 0) return 0;
 		command_string = "21 " + cmds[1];
 	}
 	else if (cmds[0] == "leave_group")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 2)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 2) == 0) return 0;
 		command_string = "29 " + cmds[1];
 	}
 	else if (cmds[0] == "list_requests")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 2)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 2) == 0) return 0;
 		command_string = "42 " + cmds[1];
 	}
 	else if (cmds[0] == "accept_request")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 3)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 3) == 0) return 0;
 		command_string = "43 " + cmds[1] + " " + cmds[2];
 	}
 	else if (cmds[0] == "list_groups")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
 		command_string = "22";
 	}
 	else if (cmds[0] == "list_files")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 2)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 2) == 0) return 0;
 		command_string = "32 " + cmds[1];
 	}
 	else if (cmds[0] == "upload_file")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 3)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 3) == 0) return 0;
+    // copy current directory to filePath
 		char path[4096] = {0};
 		string filePath = "";
 		getcwd(path, 4096);
-
-
 
 		if (cmds[1][0] != '~')
 		{
 			filePath = (string(path) + (cmds[1][0] == '/' ? "" : "/") + cmds[1]);
 			cout << filePath;
 		}
+    // check if file exists
 		if (FILE *file = fopen(filePath.c_str(), "r"))
 		{
 			fclose(file);
@@ -446,16 +418,8 @@ int getCommand()
 	}
 	else if (cmds[0] == "download_file")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 4)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 4) == 0) return 0;
 		command_string = "31 " + cmds[1] + " " + cmds[2] + " " + cmds[3];
 		fileUploadPathGroup = cmds[1];
 		fileDownloadName = cmds[2];
@@ -473,25 +437,13 @@ int getCommand()
 	}
 	else if (cmds[0] == "show_downloads")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
 		command_string = "35";
 	}
 	else if (cmds[0] == "stop_share")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 3)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 3) == 0) return 0;
 		command_string = "39 " + cmds[1] + " " + cmds[2];
 	}
 	else
@@ -589,7 +541,6 @@ void receiveData()
 				}
 				else
 				{
-
 					peer ppp(t.substr(0, t.find_last_of(":")), stoi(t.substr(t.find_last_of(":") + 1)), "");
 					peerList.push_back(peer(ppp));
 					cout << "Added seed " << ppp.ip << ":" << ppp.port << endl;
