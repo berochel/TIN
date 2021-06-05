@@ -379,7 +379,7 @@ void handlePeerCommunication(string ip, int p, int acc)
 
 int main(int argc, char **argv)
 {
-	if (argc < 3)
+	if (argc < 2)
 	{
 		cout << "Parameters not provided.Exiting...\n";
 		return -1;

@@ -16,19 +16,19 @@
 #include <sstream>
 #include "ClassDefinitions.h"
 
-bool IS_LOGGED_IN = false;
-bool LOGIN_ID = "";
+
+#define MAX_CONNECTIONS 3
+
 bool IS_PEER_OR_SEEDER = false;
 int listenSocket;
 int trackerSocket;
-const int MAX_CONNECTIONS = 3;
-string command_string = "";
-string fileUploadPath = "";
-string fileUploadPathGroup = "";
-string fileDownloadPath = "";
-string fileDownloadName = "";
+
+
+string fileUploadPath;
+string fileUploadPathGroup;
+string fileDownloadPath;
+string fileDownloadName;
 struct sockaddr_in6 trackerAddress, peerAddress;
-addrinfo *tracker, *peer_own;
 
 map<int, file_properties> downloadedFiles;
 map<int, string> fileBitVectors;		  //file ID,bit vector
@@ -272,10 +272,9 @@ void startDownload(int fileid, string fileName, string filePath)
 		thread startListenOnPeer(listenForConnections);
 		startListenOnPeer.detach();
 	}
-	//getCommand();
 }
 
-int getCommand()
+int getCommand(string& command_string, bool isLoggedIn)
 {
 	string s, t;
 	getline(cin, s);
@@ -298,7 +297,7 @@ int getCommand()
 	}
 	else if (cmds[0] == "login")
 	{
-		if (IS_LOGGED_IN)
+		if (isLoggedIn)
 		{
 			cout << "Already logged in.\n";
 			return 0;
@@ -313,7 +312,7 @@ int getCommand()
 	}
 	else if (cmds[0] == "create_group")
 	{
-		if (!IS_LOGGED_IN)
+		if (!isLoggedIn)
 		{
 			cout << "User is not logged in\n";
 			return 0;
@@ -327,7 +326,7 @@ int getCommand()
 	}
 	else if (cmds[0] == "join_group")
 	{
-		if (!IS_LOGGED_IN)
+		if (!isLoggedIn)
 		{
 			cout << "User is not logged in\n";
 			return 0;
@@ -341,7 +340,7 @@ int getCommand()
 	}
 	else if (cmds[0] == "leave_group")
 	{
-		if (!IS_LOGGED_IN)
+		if (!isLoggedIn)
 		{
 			cout << "User is not logged in\n";
 			return 0;
@@ -355,7 +354,7 @@ int getCommand()
 	}
 	else if (cmds[0] == "list_requests")
 	{
-		if (!IS_LOGGED_IN)
+		if (!isLoggedIn)
 		{
 			cout << "User is not logged in\n";
 			return 0;
@@ -369,7 +368,7 @@ int getCommand()
 	}
 	else if (cmds[0] == "accept_request")
 	{
-		if (!IS_LOGGED_IN)
+		if (!isLoggedIn)
 		{
 			cout << "User is not logged in\n";
 			return 0;
@@ -383,7 +382,7 @@ int getCommand()
 	}
 	else if (cmds[0] == "list_groups")
 	{
-		if (!IS_LOGGED_IN)
+		if (!isLoggedIn)
 		{
 			cout << "User is not logged in\n";
 			return 0;
@@ -392,7 +391,7 @@ int getCommand()
 	}
 	else if (cmds[0] == "list_files")
 	{
-		if (!IS_LOGGED_IN)
+		if (!isLoggedIn)
 		{
 			cout << "User is not logged in\n";
 			return 0;
@@ -406,7 +405,7 @@ int getCommand()
 	}
 	else if (cmds[0] == "upload_file")
 	{
-		if (!IS_LOGGED_IN)
+		if (!isLoggedIn)
 		{
 			cout << "User is not logged in\n";
 			return 0;
@@ -444,7 +443,7 @@ int getCommand()
 	}
 	else if (cmds[0] == "download_file")
 	{
-		if (!IS_LOGGED_IN)
+		if (!isLoggedIn)
 		{
 			cout << "User is not logged in\n";
 			return 0;
@@ -462,7 +461,7 @@ int getCommand()
 	}
 	else if (cmds[0] == "logout")
 	{
-		if (!IS_LOGGED_IN)
+		if (!isLoggedIn)
 		{
 			cout << "User is not logged in but quitting anyway\n";
 		}
@@ -471,7 +470,7 @@ int getCommand()
 	}
 	else if (cmds[0] == "show_downloads")
 	{
-		if (!IS_LOGGED_IN)
+		if (!isLoggedIn)
 		{
 			cout << "User is not logged in\n";
 			return 0;
@@ -480,7 +479,7 @@ int getCommand()
 	}
 	else if (cmds[0] == "stop_share")
 	{
-		if (!IS_LOGGED_IN)
+		if (!isLoggedIn)
 		{
 			cout << "User is not logged in\n";
 			return 0;
@@ -507,12 +506,13 @@ int main(int argc, char **argv)
 		cout << "Parameters not provided.Exiting...\n";
 		return -1;
 	}
+	bool isLoggedIn = false;
+
 	int reuseAddress = 1;
 	ifstream trackInfo(argv[2]);
 	string ix, px;
 	trackInfo >> ix >> px;
 	trackInfo.close();
-	
 	
 	trackerAddress.sin6_family = AF_INET6;
 	trackerAddress.sin6_port = htons(stoi(px));
@@ -561,7 +561,8 @@ int main(int argc, char **argv)
 	while (true)
 	{
 		memset(buffer, 0, 4096);
-		int cmdFlag = getCommand();
+		string command_string;
+		int cmdFlag = getCommand(command_string, isLoggedIn);
 		if (cmdFlag == 0 || command_string == "")
 			continue;
 		
@@ -575,12 +576,12 @@ int main(int argc, char **argv)
 		if (cmdFlag == 100)
 		{
 			IS_PEER_OR_SEEDER = false;
-			IS_LOGGED_IN = false;
+			isLoggedIn = false;
 			break;
 		}
 		else if (cmdFlag == 10 && string(buffer).substr(0, 3) == "Log")
 		{
-			IS_LOGGED_IN = true;
+			isLoggedIn = true;
 			
 		}
 		else if (cmdFlag == 20 && isdigit(string(buffer)[0]))
