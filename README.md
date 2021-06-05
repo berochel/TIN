@@ -1,7 +1,7 @@
 compile server: g++ -std=c++17 -o tracker tracker.cpp -pthread
 compile client: g++ -std=c++17 -o client peer.cpp -pthread
 
-wywolywanie servera: ./tracker tracker_info.txt
+wywolywanie servera: ./tracker tracker_info.txt 1
 wywolywanie klienta:  ./client ::1 tracker_info.txt
 
 zrobione jest automatyczne przypisywanie portów i ipv6.

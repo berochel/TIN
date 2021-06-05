@@ -448,7 +448,7 @@ int main(int argc, char **argv)
 	}
 
 	int socketStatus = socket(PF_INET6, SOCK_DGRAM,0);
-	
+
 	if (socketStatus < 0)
 	{
 		cout << "Socket creation error \n";
@@ -475,13 +475,13 @@ int main(int argc, char **argv)
 		if ( recvfrom(socketStatus,buffer, 4096, 0, (struct sockaddr *)&peerAddress, &addr_size) < 0 )
 		{
 			printf("Recv failed %d\n", errno);
-			return -1;	
+			return -1;
 		}
 
 		inet_ntop(AF_INET6, &(peerAddress.sin6_addr), ip, INET6_ADDRSTRLEN);
 		int port = ntohs(peerAddress.sin6_port);
 		string fullAddress = string(ip) + ":" + to_string(port);
-		
+
 		string cmdRecvd = string(buffer);
 		string t, msg = "";
 		stringstream x(cmdRecvd);
@@ -510,7 +510,7 @@ int main(int argc, char **argv)
 			continue;
 		else
 			connectedClients.push_back(fullAddress);
-		
+
 	}
-	return 0; 
+	return 0;
 }

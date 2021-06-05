@@ -17,17 +17,21 @@
 #include <mutex>
 #include "ClassDefinitions.h"
 
-bool IS_LOGGED_IN = false;
-string LOGIN_ID = "0";
-bool IS_PEER_OR_SEEDER = false;
+// Qt headers
+#include "widget.h"
+#include <QApplication>
+
+bool IS_LOGGED_IN;
+int LOGIN_ID = 0;
+bool IS_PEER_OR_SEEDER;
 int listenSocket;
 int trackerSocket;
 const int MAX_CONNECTIONS = 3;
 string command_string = "";
-string fileUploadPath = "";
-string fileUploadPathGroup = "";
-string fileDownloadPath = "";
-string fileDownloadName = "";
+string fileUploadPath;
+string fileUploadPathGroup;
+string fileDownloadPath;
+string fileDownloadName;
 struct sockaddr_in6 trackerAddress, peerAddress;
 addrinfo *tracker, *peer_own;
 std::mutex m;
@@ -259,160 +263,145 @@ void startDownload(int fileid, string fileName, string filePath)
 
 }
 
+int checkNumberOfArguments(int actual, int expected)
+{
+  if (actual == expected) return 1;
+  else if (actual < expected)
+  {
+    cout << "Too few parameters\n";
+    return 0;
+  }
+  else if (actual > expected)
+  {
+    cout << "Too many parameters\n";
+    return 0;
+  }
+}
+
+int checkIfUserLoggedIn()
+{
+  if (!IS_LOGGED_IN) return 1;
+  else
+  {
+    cout << "Already logged in.\n";
+    return 0;
+  }
+}
+
+int checkIfUserNotLoggedIn()
+{
+  if (IS_LOGGED_IN) return 1;
+  else
+  {
+    cout << "User not logged in.\n";
+    return 0;
+  }
+}
+
+enum commands
+{
+  create_user = 10,
+  login = 11,
+  create_group = 20,
+  join_group = 21,
+  leave_group = 29,
+  list_requests = 42,
+  accept_request = 43,
+  list_groups = 22,
+  list_files = 32,
+  upload_file = 30,
+  download_file = 31,
+  logout = 19,
+  show_downloads = 35,
+  stop_share = 39
+};
+
 int getCommand()
 {
-	string s, t;
-	command_string="";
-	getline(cin, s);
-	if (s == "" || s == "\n")
+	string consoleInput, command;
+	command_string = "";
+	getline(cin, consoleInput);
+	if (consoleInput == "" || consoleInput == "\n")
 		return 0;
-	stringstream x(s);
+	stringstream commandLine(consoleInput);
 	vector<string> cmds;
-	while (getline(x, t, ' '))
+
+  // seperate commands
+	while (getline(commandLine, command, ' '))
 	{
-		cmds.push_back(t);
+		cmds.push_back(command);
 	}
+
+  // check which command to do
 	if (cmds[0] == "create_user")
 	{
-		if (cmds.size() < 3)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkNumberOfArguments(cmds.size(), 3) == 0) return 0;
 		command_string = "10 " + cmds[1] + " " + cmds[2];
 	}
 	else if (cmds[0] == "login")
 	{
-		if (IS_LOGGED_IN)
-		{
-			cout << "Already logged in.\n";
-			return 0;
-		}
-		if (cmds.size() < 3)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
-		LOGIN_ID = cmds[1];
+    if (checkIfUserLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 3) == 0) return 0;
+		LOGIN_ID = stoi(cmds[1]);
 		command_string = "11 " + cmds[1] + " " + cmds[2];
 		return 10;
 	}
 	else if (cmds[0] == "create_group")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 2)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 2) == 0) return 0;
 		command_string = "20 " + cmds[1];
 	}
 	else if (cmds[0] == "join_group")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 2)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 2) == 0) return 0;
 		command_string = "21 " + cmds[1];
 	}
 	else if (cmds[0] == "leave_group")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 2)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 2) == 0) return 0;
 		command_string = "29 " + cmds[1];
 	}
 	else if (cmds[0] == "list_requests")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 2)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 2) == 0) return 0;
 		command_string = "42 " + cmds[1];
 	}
 	else if (cmds[0] == "accept_request")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 3)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 3) == 0) return 0;
 		command_string = "43 " + cmds[1] + " " + cmds[2];
 	}
 	else if (cmds[0] == "list_groups")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
 		command_string = "22";
 	}
 	else if (cmds[0] == "list_files")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 2)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 2) == 0) return 0;
 		command_string = "32 " + cmds[1];
 	}
 	else if (cmds[0] == "upload_file")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 3)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 3) == 0) return 0;
+    // copy current directory to filePath
 		char path[4096] = {0};
 		string filePath = "";
 		getcwd(path, 4096);
-
-		
 
 		if (cmds[1][0] != '~')
 		{
 			filePath = (string(path) + (cmds[1][0] == '/' ? "" : "/") + cmds[1]);
 			cout << filePath;
 		}
+    // check if file exists
 		if (FILE *file = fopen(filePath.c_str(), "r"))
 		{
 			fclose(file);
@@ -423,23 +412,15 @@ int getCommand()
 			return 20;
 		}
 		else
-		{	
+		{
 			cout << "File not found\n";
 			return 0;
 		}
 	}
 	else if (cmds[0] == "download_file")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 4)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 4) == 0) return 0;
 		command_string = "31 " + cmds[1] + " " + cmds[2] + " " + cmds[3];
 		fileUploadPathGroup = cmds[1];
 		fileDownloadName = cmds[2];
@@ -448,34 +429,19 @@ int getCommand()
 	}
 	else if (cmds[0] == "logout")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in but quitting anyway\n";
-		}
+		if (!IS_LOGGED_IN) cout << "User is not logged in, quitting anyway\n";
 		command_string = "19";
 		return 100;
 	}
 	else if (cmds[0] == "show_downloads")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
 		command_string = "35";
 	}
 	else if (cmds[0] == "stop_share")
 	{
-		if (!IS_LOGGED_IN)
-		{
-			cout << "User is not logged in\n";
-			return 0;
-		}
-		if (cmds.size() < 3)
-		{
-			cout << "Too few parameters\n";
-			return 0;
-		}
+		if (checkIfUserNotLoggedIn() == 0) return 0;
+    if (checkNumberOfArguments(cmds.size(), 3) == 0) return 0;
 		command_string = "39 " + cmds[1] + " " + cmds[2];
 	}
 	else
@@ -506,7 +472,7 @@ void receiveData()
 		if (string(buffer).substr(0, 3) == "Log")
 		{
 			IS_LOGGED_IN = true;
-			
+
 		}
 		else if (string(buffer).substr(0, 3) == "30 ")
 		{
@@ -573,7 +539,6 @@ void receiveData()
 				}
 				else
 				{
-					
 					peer ppp(t.substr(0, t.find_last_of(":")), stoi(t.substr(t.find_last_of(":") + 1)), "");
 					peerList.push_back(peer(ppp));
 					cout << "Added seed " << ppp.ip << ":" << ppp.port << endl;
@@ -585,8 +550,17 @@ void receiveData()
 			thread startdl(startDownload, fileid, fileDownloadName, fileDownloadPath);
 			startdl.detach();
 			// startDownload( fileid, fileDownloadName, fileDownloadPath);
-		}	
+		}
 	}
+}
+
+void runGUIApplication(int argc, char **argv, int tracker_socket, int loginID, socklen_t addr_size)
+{
+	// Qt test
+	QApplication a(argc, argv);
+    	Widget w(tracker_socket, loginID, addr_size);
+    	w.show();
+    	a.exec();
 }
 
 int main(int argc, char **argv)
@@ -596,37 +570,42 @@ int main(int argc, char **argv)
 		cout << "Parameters not provided.Exiting...\n";
 		return -1;
 	}
+	
+	IS_LOGGED_IN = false;
+	IS_PEER_OR_SEEDER = false;
+	fileUploadPath = "";
+	fileUploadPathGroup = "";
+	fileDownloadPath = "";
+	fileDownloadName = "";
+	
 	int reuseAddress = 1;
 	ifstream trackInfo(argv[2]);
 	string ix, px;
 	trackInfo >> ix >> px;
 	trackInfo.close();
-	
+
 	socklen_t addr_size = sizeof(struct sockaddr_in6);
 
-	
 	trackerAddress.sin6_family = AF_INET6;
 	trackerAddress.sin6_port = htons(stoi(px));
 	inet_pton(AF_INET6, ix.c_str(), &(trackerAddress.sin6_addr));
 
-	
+
 	trackerSocket = socket(AF_INET6, SOCK_DGRAM, 0);
 	int listenSocketOptions = setsockopt(trackerSocket, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
 	setsockopt(trackerSocket, SOL_SOCKET, SO_REUSEPORT, &reuseAddress, sizeof(reuseAddress));
-	
+
 	if (trackerSocket < 0 || listenSocketOptions < 0)
 	{
 		cout << "Socket creation error \n";
 		return -1;
-	
 	}
-
 
 	char ip[INET6_ADDRSTRLEN];
 	inet_ntop(AF_INET6, &(trackerAddress.sin6_addr), ip, INET6_ADDRSTRLEN);
 	int port = ntohs(trackerAddress.sin6_port);
 	//printf("Connecting to: %s, Port: %d\n", ip, port);
-	
+
 	char buffer[4096] = {0};
 	string syncActual = "sync " + string(argv[1]) + " ";
 	sendto(trackerSocket, syncActual.c_str(), syncActual.length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
@@ -651,7 +630,10 @@ int main(int argc, char **argv)
 		int cmdFlag = getCommand();
 		if (cmdFlag == 0 || command_string == "")
 			continue;
-		command_string+=' ' + LOGIN_ID;
+		
+    		//runGUIApplication(argc, argv, trackerSocket, LOGIN_ID, addr_size);
+    		//cout << "fileDownloadName: " << fileDownloadName << endl;
+		command_string+=' ' + to_string(LOGIN_ID);
 		sendto(trackerSocket, command_string.c_str(), (command_string).length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
 		command_string = "";
 
