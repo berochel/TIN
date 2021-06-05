@@ -16,21 +16,22 @@
 #include <sstream>
 #include <mutex>
 #include "ClassDefinitions.h"
+
 // Qt headers
 #include "widget.h"
 #include <QApplication>
 
-bool IS_LOGGED_IN = false;
-string LOGIN_ID = "0";
-bool IS_PEER_OR_SEEDER = false;
+bool IS_LOGGED_IN;
+int LOGIN_ID = 0;
+bool IS_PEER_OR_SEEDER;
 int listenSocket;
 int trackerSocket;
 const int MAX_CONNECTIONS = 3;
 string command_string = "";
-string fileUploadPath = "";
-string fileUploadPathGroup = "";
-string fileDownloadPath = "";
-string fileDownloadName = "";
+string fileUploadPath;
+string fileUploadPathGroup;
+string fileDownloadPath;
+string fileDownloadName;
 struct sockaddr_in6 trackerAddress, peerAddress;
 addrinfo *tracker, *peer_own;
 std::mutex m;
@@ -341,7 +342,7 @@ int getCommand()
 	{
     if (checkIfUserLoggedIn() == 0) return 0;
     if (checkNumberOfArguments(cmds.size(), 3) == 0) return 0;
-		LOGIN_ID = cmds[1];
+		LOGIN_ID = stoi(cmds[1]);
 		command_string = "11 " + cmds[1] + " " + cmds[2];
 		return 10;
 	}
@@ -553,6 +554,15 @@ void receiveData()
 	}
 }
 
+void runGUIApplication(int argc, char **argv, int tracker_socket, int loginID, socklen_t addr_size)
+{
+	// Qt test
+	QApplication a(argc, argv);
+    	Widget w(tracker_socket, loginID, addr_size);
+    	w.show();
+    	a.exec();
+}
+
 int main(int argc, char **argv)
 {
 	if (argc < 3)
@@ -560,6 +570,13 @@ int main(int argc, char **argv)
 		cout << "Parameters not provided.Exiting...\n";
 		return -1;
 	}
+	
+	IS_LOGGED_IN = false;
+	IS_PEER_OR_SEEDER = false;
+	fileUploadPath = "";
+	fileUploadPathGroup = "";
+	fileDownloadPath = "";
+	fileDownloadName = "";
 	
 	int reuseAddress = 1;
 	ifstream trackInfo(argv[2]);
@@ -613,13 +630,10 @@ int main(int argc, char **argv)
 		int cmdFlag = getCommand();
 		if (cmdFlag == 0 || command_string == "")
 			continue;
-		// Qt test
-		QApplication a(argc, argv);
-    		Widget w;
-    		w.show();
-    		//a.exec();
-    	
-		command_string+=' ' + LOGIN_ID;
+		
+    		//runGUIApplication(argc, argv, trackerSocket, LOGIN_ID, addr_size);
+    		//cout << "fileDownloadName: " << fileDownloadName << endl;
+		command_string+=' ' + to_string(LOGIN_ID);
 		sendto(trackerSocket, command_string.c_str(), (command_string).length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
 		command_string = "";
 

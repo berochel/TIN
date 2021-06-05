@@ -2,17 +2,22 @@
 #define WIDGET_H
 
 #include <QWidget>
+#include <sys/socket.h>
+#include <string>
+#include <iostream>
+#include <unistd.h>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class Widget; }
 QT_END_NAMESPACE
+
 
 class Widget : public QWidget
 {
     Q_OBJECT
 
 public:
-    Widget(QWidget *parent = nullptr);
+    Widget(int socket, int login, socklen_t addr_size, QWidget *parent = nullptr);
     ~Widget();
     std::string getAttribute1();
     std::string getAttribute2();
@@ -37,6 +42,8 @@ private slots:
 private:
     Ui::Widget *ui;
     int user_id;
+    int socket;
     std::string command;
+    socklen_t addr_size;
 };
 #endif // WIDGET_H
