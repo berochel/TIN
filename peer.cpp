@@ -16,6 +16,9 @@
 #include <sstream>
 #include <mutex>
 #include "ClassDefinitions.h"
+// Qt headers
+#include "widget.h"
+#include <QApplication>
 
 bool IS_LOGGED_IN = false;
 string LOGIN_ID = "0";
@@ -557,6 +560,7 @@ int main(int argc, char **argv)
 		cout << "Parameters not provided.Exiting...\n";
 		return -1;
 	}
+	
 	int reuseAddress = 1;
 	ifstream trackInfo(argv[2]);
 	string ix, px;
@@ -609,6 +613,12 @@ int main(int argc, char **argv)
 		int cmdFlag = getCommand();
 		if (cmdFlag == 0 || command_string == "")
 			continue;
+		// Qt test
+		QApplication a(argc, argv);
+    		Widget w;
+    		w.show();
+    		//a.exec();
+    	
 		command_string+=' ' + LOGIN_ID;
 		sendto(trackerSocket, command_string.c_str(), (command_string).length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
 		command_string = "";
