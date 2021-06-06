@@ -1,13 +1,28 @@
-compile server: g++ -std=c++17 -o tracker tracker.cpp -pthread
-compile client: g++ -std=c++17 -o client peer.cpp -pthread
+# Sieć P2P
+### Opis projektu
+Prosty kanał P2P w oparciu o protokół BitTorrent, wykorzystuje IPv6 oraz UDP. Pozwala na udostępnianie oraz pobieranie plików.
+Projekt napisany w C++, GUI z wykorzystaniem biblioteki QT.
+### Zespół
+* Patryk Dobrowolski
+* Tymoteusz Perka
+* Jakub Strawa
+* Jarosław Zabuski
 
-wywolywanie servera: ./tracker tracker_info.txt 1
-wywolywanie klienta:  ./client ::1 tracker_info.txt
+### Kompilacja 
+Przed przystąpieniem do kompilacji należy zainstalować:
+* pakiet deweloperski openssl
+* QT w wersji 5
+
+W pliku Makefile należy zmienić wszyskie (powinny być 3) odniesienia do ścieżki 'kuba/Desktop/TIN' na właściwą dla siebie nazwę katalogu docelowego.
+
+### Uruchamianie
+Wywołanie serwera/trackera: ./tracker tracker_info.txt 1
+
+Wywołanie klienta:  ./client ::1 tracker_info.txt
 
 zrobione jest automatyczne przypisywanie portów i ipv6.
 
-#### Functionality for client
-
+### Funkcjonalność klienta
 * Create User Account: `create_user <user_id> <passwd>`
 * Login: `login  <user_id> <passwd>`
 * Create Group: `create_group <group_id>`
