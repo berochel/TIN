@@ -8,6 +8,7 @@ extern std::string fileUploadPath;
 extern std::string fileUploadPathGroup;
 extern std::string fileDownloadPath;
 extern std::string fileDownloadName;
+extern struct sockaddr_in6 trackerAddress;
 
 Widget::Widget(int socket, int login, socklen_t addr_size, QWidget *parent)
     : socket(socket), user_id(login), addr_size(addr_size), QWidget(parent)
@@ -94,13 +95,18 @@ std::string Widget::getCommand()
 
 void Widget::on_exitButton_clicked()
 {
+    command = "19";
+    sendto(socket, command.c_str(), (command).length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
     setUserID(-1);
-    hide();
+    IS_PEER_OR_SEEDER = false;
+    IS_LOGGED_IN = false;
+    close();
 }
 
 void Widget::on_logOutButton_clicked()
 {
     command = "19";
+    sendto(socket, command.c_str(), (command).length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
     clearTextFields();
     setUserID(-1);
     IS_PEER_OR_SEEDER = false;
@@ -118,8 +124,7 @@ void Widget::on_sendCommandButton_clicked()
         command = "10 " + attr1 + " " + attr2;
     } else if (text == "login" && user_id <= 0){
         command = "11 " + attr1 + " " + attr2;
-        user_id = std::stoi(attr1);
-        //return 10;
+        setUserID(std::stoi(attr1));
     } else if (user_id > 0){
 	    if (text == "create group"){
 		command = "20 " + attr1;
@@ -136,7 +141,6 @@ void Widget::on_sendCommandButton_clicked()
 	    } else if (text == "list files"){
 		command = "32 " + attr1;
 	    } else if (text == "upload file"){
-		
 		// copy current directory to filePath
 		char path[4096] = {0};
 		std::string filePath = "";
@@ -145,7 +149,7 @@ void Widget::on_sendCommandButton_clicked()
 		if (attr1[0] != '~')
 		{
 			filePath = (std::string(path) + (attr1[0] == '/' ? "" : "/") + attr1);
-			std::cout << filePath;
+			std::cout << "filepath: " << filePath << std::endl;
 		}
     		// check if file exists
 		if (FILE *file = fopen(filePath.c_str(), "r"))
@@ -155,12 +159,13 @@ void Widget::on_sendCommandButton_clicked()
 			std::cout << command << std::endl;
 			fileUploadPath = filePath;
 			fileUploadPathGroup = attr2;
-			//return 20;
 		}
 		else
 		{
-			std::cout << "File not found\n";
-			//return 0;
+			std::cout << "File not found.\n";
+			QMessageBox msgBox;
+        		msgBox.setText("File not found.");
+        		msgBox.exec();
 		}
 		
 	    } else if (text == "download file"){
@@ -169,17 +174,22 @@ void Widget::on_sendCommandButton_clicked()
 		fileUploadPathGroup = attr1;
 		fileDownloadName = attr2;
 		fileDownloadPath = attr3;
-		//return 30;
 		
 	    } else if (text == "show downloads"){
 		command = "35";
 	    } else if (text == "stop share"){
 		command = "39 " + attr1 + " " + attr2;
 	    }
+	} else {
+		std::cout << "You are not logged in.\n";
+		QMessageBox msgBox;
+        	msgBox.setText("You are not logged in.");
+        	msgBox.exec();
 	}
     command += " " + std::to_string(user_id);
-    fileDownloadName = attr1;
     clearTextFields();
+    std::cout << command << std::endl;
+    sendto(socket, command.c_str(), (command).length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
 }
 
 void Widget::on_commandComboBox_currentTextChanged(const QString &arg1)
