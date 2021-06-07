@@ -2,11 +2,9 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <stdlib.h>
 #include <string.h>
 #include <netinet/in.h>
-#include <openssl/sha.h>
-#include <net/if.h>
+
 #include <netdb.h>
 
 #include <string>
@@ -16,39 +14,34 @@
 #include <map>
 #include <set>
 #include <algorithm>
-#include <thread>
+
 
 #include "ClassDefinitions.h"
 
 using namespace std;
 
-vector<user> USER_DB; //uid,pass
-vector<group> GROUPS; //grp id,owner
-//map<string, set<string>> PENDING_REQUESTS;		  //user id,list of groups
-//vector<pair<string, string>> UNACCEPTED_REQUESTS; //grp id,usr id
-map<string, peer> peerList;
-map<string, group_pending_request> groupPendingRequests;
-map<string, vector<file_properties>> filesInGroup;
-map<int, file_properties> fileIndex;
+vector<User> USER_DB; //uid,pass
+vector<Group> GROUPS; //grp id,owner
+map<string, Peer> peerList;
+map<string, GroupPendingRequest> groupPendingRequests;
+map<string, vector<FileProperties>> filesInGroup;
+map<int, FileProperties> fileIndex;
 vector<string> connectedClients;
-//map<string, user> peerDetailsList;
+
 int FILE_ID = 1;
 
 void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr_in6 peerAddress, vector<string> cmds)
 {
 	socklen_t addr_size = sizeof(struct sockaddr_in6);
 
-	//char *buffer; //[4096] = {0};
-	bool IS_LOGGED_IN = false;
 	string LOGIN_ID = cmds.back();
 	cmds.pop_back();
-	if (LOGIN_ID != "0")
-		IS_LOGGED_IN = true;
+
 	string t, msg = "";
 
 	if (cmds[0] == "10")
 	{
-		user u(cmds[1], cmds[2]);
+		User u(cmds[1], cmds[2]);
 		bool flag = false;
 		for (int i = 0; i < USER_DB.size(); i++)
 		{
@@ -71,7 +64,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 	}
 	else if (cmds[0] == "11")
 	{
-		peer client(ip, p, cmds[1]);
+		Peer client(ip, p, cmds[1]);
 		int i;
 		for (i = 0; i < USER_DB.size(); i++)
 		{
@@ -88,8 +81,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			{
 				LOGIN_ID = cmds[1];
 				peerList[LOGIN_ID] = client;
-				IS_LOGGED_IN = true;
-				msg = "Logging in with user ID " + cmds[1];
+				msg = "Logging in with User ID " + cmds[1];
 			}
 			else
 			{
@@ -103,8 +95,8 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 	}
 	else if (cmds[0] == "20")
 	{
-		group grp(cmds[1], LOGIN_ID);
-		set<string> mems; //add admin to group
+		Group grp(cmds[1], LOGIN_ID);
+		set<string> mems; //add admin to Group
 		mems.insert(LOGIN_ID);
 		grp.members = mems;
 		int i;
@@ -153,12 +145,12 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 		{
 			set<string> existingMembers = GROUPS[i].members;
 			if (existingMembers.find(LOGIN_ID) != existingMembers.end())
-				msg = LOGIN_ID + " is already a part of group " + GROUPS[i].name;
+				msg = LOGIN_ID + " is already a part of Group " + GROUPS[i].name;
 			else
 			{
 				set<string> xxx = groupPendingRequests[cmds[1]].pendingID;
 				xxx.insert(LOGIN_ID);
-				group_pending_request gg(cmds[1], GROUPS[i].adminUserID, xxx);
+				GroupPendingRequest gg(cmds[1], GROUPS[i].adminUserID, xxx);
 				groupPendingRequests[cmds[1]] = gg;
 				msg = "Request sent";
 			}
@@ -190,7 +182,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			{
 				grpmembers.erase(LOGIN_ID);
 				GROUPS[i].members = grpmembers;
-				msg = "User " + LOGIN_ID + " removed from group " + GROUPS[i].name;
+				msg = "User " + LOGIN_ID + " removed from Group " + GROUPS[i].name;
 			}
 		}
 		if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
@@ -200,7 +192,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 	}
 	else if (cmds[0] == "42")
 	{
-		group_pending_request grpp = groupPendingRequests[cmds[1]];
+		GroupPendingRequest grpp = groupPendingRequests[cmds[1]];
 		if (grpp.grpname == "")
 			msg = "Group not found/No pending requests";
 		else
@@ -211,7 +203,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			if (pp == "")
 				msg = "Group not found/No pending requests";
 			else
-				msg = "For group " + grpp.grpname + " pending requests are: " + pp;
+				msg = "For Group " + grpp.grpname + " pending requests are: " + pp;
 		}
 		if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
 		{
@@ -220,22 +212,22 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 	}
 	else if (cmds[0] == "43")
 	{
-		group_pending_request grpp = groupPendingRequests[cmds[1]];
+		GroupPendingRequest grpp = groupPendingRequests[cmds[1]];
 		if (grpp.grpname == "")
 			msg = "Group not found/No pending requests";
 		else if (grpp.adminname != LOGIN_ID)
-			msg = LOGIN_ID + " is not the admin for group " + grpp.grpname;
+			msg = LOGIN_ID + " is not the admin for Group " + grpp.grpname;
 		else
 		{
 			set<string> pendID = grpp.pendingID;
 			if (pendID.find(cmds[2]) == pendID.end())
-				msg = "Group join request for " + cmds[2] + " not found with group " + grpp.grpname;
+				msg = "Group join request for " + cmds[2] + " not found with Group " + grpp.grpname;
 			else
 			{
 				pendID.erase(cmds[2]);
 				grpp.pendingID = pendID;
 				groupPendingRequests[cmds[1]] = grpp;
-				msg = "For group " + grpp.grpname + ", join request approved for " + cmds[2];
+				msg = "For Group " + grpp.grpname + ", join request approved for " + cmds[2];
 			}
 		}
 		if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
@@ -255,9 +247,9 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 	}
 	else if (cmds[0] == "32")
 	{
-		vector<file_properties> grpFiles = filesInGroup[cmds[1]];
+		vector<FileProperties> grpFiles = filesInGroup[cmds[1]];
 		if (grpFiles.size() == 0)
-			msg = "No files present in group " + cmds[1];
+			msg = "No files present in Group " + cmds[1];
 		else
 		{
 			msg = "Files present ";
@@ -274,14 +266,12 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 	else if (cmds[0] == "30")
 	{
 		int i, totPiece = 0;
-		string totalHash = "";
+		string totalHash;
 		char *piece = new char[PIECE_SIZE], hash[20]; //make unsigned for SHA1
 		ifstream ifs(cmds[1], ios::binary);
 		while (ifs.read((char *)piece, PIECE_SIZE) || ifs.gcount())
 		{
-			//SHA1(piece, strlen((char *)piece), hash);
 			totalHash += string((char *)hash);
-			//cout<<ifs.tellg()<<endl;
 			totPiece++;
 			memset(piece, 0, PIECE_SIZE);
 		}
@@ -295,24 +285,24 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			msg = "Group " + cmds[2] + " not found";
 		else
 		{
-			vector<file_properties> vv = filesInGroup[cmds[2]];
-			peer currentPeer = peerList[LOGIN_ID];
-			set<peer> peerSet;
+			vector<FileProperties> vv = filesInGroup[cmds[2]];
+			Peer currentPeer = peerList[LOGIN_ID];
+			set<Peer> peerSet;
 			peerSet.insert(currentPeer);
-			file_properties fp(FILE_ID++, cmds[1], cmds[1], cmds[2], totPiece, totalHash, peerSet);
+			FileProperties fp(FILE_ID++, cmds[1], cmds[1], cmds[2], totPiece, totalHash, peerSet);
 			for (i = 0; i < vv.size(); i++)
 			{
 				if (vv[i].path == cmds[1])
 					break;
 			}
 			if (i < vv.size())
-				msg = "File " + cmds[1] + " already exists in group " + cmds[2];
+				msg = "File " + cmds[1] + " already exists in Group " + cmds[2];
 			else
 			{
 				vv.push_back(fp);
 				filesInGroup[cmds[2]] = vv;
 				fileIndex[FILE_ID - 1] = fp;
-				msg = "30 " + to_string(FILE_ID - 1) + " ID File " + cmds[1] + " added to group " + cmds[2];
+				msg = "30 " + to_string(FILE_ID - 1) + " ID File " + cmds[1] + " added to Group " + cmds[2];
 			}
 		}
 		if (sendto(socketStatus, msg.c_str(), msg.length(), 0, (struct sockaddr *)&peerAddress, addr_size) < 0 )
@@ -332,17 +322,17 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 			msg = "Group " + cmds[1] + " not found";
 		else
 		{
-			vector<file_properties> files = filesInGroup[cmds[1]];
+			vector<FileProperties> files = filesInGroup[cmds[1]];
 			for (i = 0; i < files.size(); i++)
 			{
 				if (files[i].path.compare(files[i].path.length() - cmds[2].length(), cmds[2].length(), cmds[2]) == 0)
 					break;
 			}
 			if (i == files.size())
-				msg = "File " + cmds[2] + " not found in group " + cmds[1];
+				msg = "File " + cmds[2] + " not found in Group " + cmds[1];
 			else
 			{
-				set<peer> seeds = fileIndex[files[i].id].seederList; //files[i].seederList;
+				set<Peer> seeds = fileIndex[files[i].id].seederList; //files[i].seederList;
 				if (seeds.empty())
 					msg = "No seeds are currently present";
 				else
@@ -372,7 +362,7 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 	}
 	else if (cmds[0] == "35")
 	{
-		//Show downloads in peer side, nothing to do here
+		//Show downloads in Peer side, nothing to do here
 		//send(acc, msg.c_str(), msg.length(), 0);
 	}
 	else if (cmds[0] == "39")
@@ -386,9 +376,9 @@ void handlePeerCommunication(string ip, int p, int socketStatus, struct sockaddr
 	}
 	else if (cmds[0] == "50") //add as seeder
 	{
-		file_properties vv = fileIndex[stoi(cmds[1])];
-		peer currentPeer = peerList[LOGIN_ID];
-		set<peer> peerSet = vv.seederList;
+		FileProperties vv = fileIndex[stoi(cmds[1])];
+		Peer currentPeer = peerList[LOGIN_ID];
+		set<Peer> peerSet = vv.seederList;
 		peerSet.insert(currentPeer);
 		vv.seederList = peerSet;
 		fileIndex[stoi(cmds[1])] = vv;
@@ -483,7 +473,7 @@ int main(int argc, char **argv)
 		string fullAddress = string(ip) + ":" + to_string(port);
 
 		string cmdRecvd = string(buffer);
-		string t, msg = "";
+		string t, msg;
 		stringstream x(cmdRecvd);
 		vector<string> cmds;
 

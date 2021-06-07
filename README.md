@@ -12,13 +12,21 @@ Projekt napisany w C++, GUI z wykorzystaniem biblioteki QT.
 Przed przystąpieniem do kompilacji należy zainstalować:
 * pakiet deweloperski openssl
 * QT w wersji 5
+* CMake w wersji conajmniej 3.15
 
-W pliku Makefile należy zmienić wszyskie (powinny być 3) odniesienia do ścieżki 'kuba/Desktop/TIN' na właściwą dla siebie nazwę katalogu docelowego.
+Aby dokonać kompilacji, należy przejść do katalogu projektu i wykonać:
 
+`cmake .`
+
+Co utworzy dwa pliki wykonywalne: `tracker` oraz `client`.
 ### Uruchamianie
-Wywołanie serwera/trackera: ./tracker tracker_info.txt 1
+Wywołanie serwera/trackera:
 
-Wywołanie klienta:  ./client ::1 tracker_info.txt
+`./tracker tracker_info.txt 1`
+
+Wywołanie klienta: 
+
+`./client ::1 tracker_info.txt`
 
 zrobione jest automatyczne przypisywanie portów i ipv6.
 

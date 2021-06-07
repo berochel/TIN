@@ -2,7 +2,6 @@
 #include "ui_widget.h"
 #include <QMessageBox>
 
-extern bool IS_LOGGED_IN;
 extern bool IS_PEER_OR_SEEDER;
 extern std::string fileUploadPath;
 extern std::string fileUploadPathGroup;
@@ -15,7 +14,7 @@ Widget::Widget(int socket, int login, socklen_t addr_size, QWidget *parent)
     , ui(new Ui::Widget)
 {
     ui->setupUi(this);
-    QStringList list=(QStringList()<<"login"<<"create user"<<"create group"<<"join group"<<"leave group"<<"list requests"<<"accept request"<<"list groups"<<"list files"<<"upload file"<<"download file"<<"show downloads"<<"stop share");
+    QStringList list=(QStringList()<<"login"<<"create User"<<"create Group"<<"join Group"<<"leave Group"<<"list requests"<<"accept request"<<"list groups"<<"list files"<<"upload file"<<"download file"<<"show downloads"<<"stop share");
     ui->commandComboBox->addItems(list);
 }
 
@@ -99,7 +98,6 @@ void Widget::on_exitButton_clicked()
     sendto(socket, command.c_str(), (command).length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
     setUserID(-1);
     IS_PEER_OR_SEEDER = false;
-    IS_LOGGED_IN = false;
     close();
 }
 
@@ -110,7 +108,6 @@ void Widget::on_logOutButton_clicked()
     clearTextFields();
     setUserID(-1);
     IS_PEER_OR_SEEDER = false;
-    IS_LOGGED_IN = false;
 }
 
 void Widget::on_sendCommandButton_clicked()
@@ -120,17 +117,17 @@ void Widget::on_sendCommandButton_clicked()
     std::string attr2 = getAttribute2();
     std::string attr3 = getAttribute3();
     command = "";
-    if (text == "create user"){
+    if (text == "create User"){
         command = "10 " + attr1 + " " + attr2;
     } else if (text == "login" && user_id <= 0){
         command = "11 " + attr1 + " " + attr2;
         setUserID(std::stoi(attr1));
     } else if (user_id > 0){
-	    if (text == "create group"){
+	    if (text == "create Group"){
 		command = "20 " + attr1;
-	    } else if (text == "join group"){
+	    } else if (text == "join Group"){
 		command = "21 " + attr1;
-	    } else if (text == "leave group"){
+	    } else if (text == "leave Group"){
 		command = "29 " + attr1;
 	    } else if (text == "list requests"){
 		command = "42 " + attr1;
@@ -195,48 +192,48 @@ void Widget::on_sendCommandButton_clicked()
 void Widget::on_commandComboBox_currentTextChanged(const QString &arg1)
 {
     std::string text = ui->commandComboBox->currentText().toStdString();
-    if (text == "create user"){
-        setAttribute1("user id");
+    if (text == "create User"){
+        setAttribute1("User id");
         setAttribute2("password");
         setAttribute3("");
     } else if (text == "login"){
-        setAttribute1("user id");
+        setAttribute1("User id");
         setAttribute2("password");
         setAttribute3("");
-    } else if (text == "create group"){
-        setAttribute1("group id");
+    } else if (text == "create Group"){
+        setAttribute1("Group id");
         setAttribute2("");
         setAttribute3("");
-    } else if (text == "join group"){
-        setAttribute1("group id");
+    } else if (text == "join Group"){
+        setAttribute1("Group id");
         setAttribute2("");
         setAttribute3("");
-    } else if (text == "leave group"){
-        setAttribute1("group id");
+    } else if (text == "leave Group"){
+        setAttribute1("Group id");
         setAttribute2("");
         setAttribute3("");
     } else if (text == "list requests"){
-        setAttribute1("group id");
+        setAttribute1("Group id");
         setAttribute2("");
         setAttribute3("");
     } else if (text == "accept request"){
-        setAttribute1("group id");
-        setAttribute2("user id");
+        setAttribute1("Group id");
+        setAttribute2("User id");
         setAttribute3("");
     } else if (text == "list groups"){
         setAttribute1("");
         setAttribute2("");
         setAttribute3("");
     } else if (text == "list files"){
-        setAttribute1("group id");
+        setAttribute1("Group id");
         setAttribute2("");
         setAttribute3("");
     } else if (text == "upload file"){
         setAttribute1("file path");
-        setAttribute2("group id");
+        setAttribute2("Group id");
         setAttribute3("");
     } else if (text == "download file"){
-        setAttribute1("group id");
+        setAttribute1("Group id");
         setAttribute2("file name");
         setAttribute3("destination path");
     } else if (text == "show downloads"){
@@ -244,7 +241,7 @@ void Widget::on_commandComboBox_currentTextChanged(const QString &arg1)
         setAttribute2("");
         setAttribute3("");
     } else if (text == "stop share"){
-        setAttribute1("group id");
+        setAttribute1("Group id");
         setAttribute2("file name");
         setAttribute3("");
     } else {

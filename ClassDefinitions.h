@@ -11,11 +11,11 @@
 using namespace std;
 
 size_t PIECE_SIZE = 1024;
-class user
+class User
 {
 public:
-	user() {}
-	user(string userID, string password)
+	User() {}
+	User(string userID, string password)
 	{
 		this->userID = userID;
 		this->password = password;
@@ -26,33 +26,29 @@ public:
 	bool isLoggedIn;
 };
 
-class peer
+class Peer
 {
 public:
-	peer()
+	Peer()
 	{
 		ip = "";
 		port = 0;
 		userID = "";
 	}
-	peer(string ip, int port, string userID)
+	Peer(string ip, int port, string userID)
 	{
 		this->ip = ip;
 		this->port = port;
 		this->userID = userID;
 	}
-	/*peer &operator=(const peer &t)
-	{
-		this->ip = ip;
-		this->port = port;
-		this->userID = userID;
-	}*/
-	bool operator<(const peer &rhs) const
+
+
+	bool operator<(const Peer &rhs) const
 	{
 		return port < rhs.port;
 	}
 
-	peer(const peer &p)
+	Peer(const Peer &p)
 	{
 		ip = p.ip;
 		port = p.port;
@@ -63,10 +59,10 @@ public:
 	string userID;
 };
 
-class group
+class Group
 {
 public:
-	group(string name, string adminUserID)
+	Group(string name, string adminUserID)
 	{
 		this->name = name;
 		this->adminUserID = adminUserID;
@@ -76,21 +72,21 @@ public:
 	set<string> members;
 };
 
-class group_pending_request
+class GroupPendingRequest
 {
 public:
-	group_pending_request()
+	GroupPendingRequest()
 	{
 		grpname = "";
 		adminname = "";
 	}
-	group_pending_request(string gName, string admin, set<string> members)
+	GroupPendingRequest(string gName, string admin, set<string> members)
 	{
 		grpname = gName;
 		adminname = admin;
 		pendingID = members;
 	}
-	group_pending_request(const group_pending_request &g)
+	GroupPendingRequest(const GroupPendingRequest &g)
 	{
 		grpname = g.grpname;
 		adminname = g.adminname;
@@ -100,7 +96,7 @@ public:
 	string adminname;
 	set<string> pendingID;
 };
-class file_properties
+class FileProperties
 {
 public:
 	int id;
@@ -108,10 +104,10 @@ public:
 	string path;
 	string groupName;
 	int pieces;
-	set<peer> seederList;
+	set<Peer> seederList;
 	string hash;
 
-	file_properties()
+	FileProperties()
 	{
 		id = -1;
 		name = "";
@@ -120,7 +116,7 @@ public:
 		pieces = 0;
 		hash = "";
 	}
-	file_properties(int i, string n, string p, string grp, int pi, string hh, set<peer> seedList)
+	FileProperties(int i, string n, string p, string grp, int pi, string hh, set<Peer> seedList)
 	{
 		id = i;
 		name = n;
@@ -130,7 +126,7 @@ public:
 		hash = hh;
 		seederList = seedList;
 	}
-	file_properties(const file_properties &f)
+	FileProperties(const FileProperties &f)
 	{
 		id = f.id;
 		name = f.name;
@@ -141,26 +137,3 @@ public:
 		seederList = f.seederList;
 	}
 };
-
-/*class connectedClient
-
-{
-public:
-	connectedClient()
-	{
-		ip = "";
-		port = 0;
-	}
-	connectedClient(string i, int p)
-	{
-		ip = i;
-		port = p;
-	}
-	connectedClient(const connectedClient &c)
-	{
-		ip = c.ip;
-		port = c.port;
-	}
-	string ip;
-	int port;
-};*/
