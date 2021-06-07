@@ -14,7 +14,7 @@ Widget::Widget(int socket, int login, socklen_t addr_size, QWidget *parent)
     , ui(new Ui::Widget)
 {
     ui->setupUi(this);
-    QStringList list=(QStringList()<<"login"<<"create User"<<"create Group"<<"join Group"<<"leave Group"<<"list requests"<<"accept request"<<"list groups"<<"list files"<<"upload file"<<"download file"<<"show downloads"<<"stop share");
+    QStringList list=(QStringList()<<"login"<<"create user"<<"create group"<<"join group"<<"leave group"<<"list requests"<<"accept request"<<"list groups"<<"list files"<<"upload file"<<"download file"<<"show downloads"<<"stop share");
     ui->commandComboBox->addItems(list);
 }
 
@@ -117,17 +117,17 @@ void Widget::on_sendCommandButton_clicked()
     std::string attr2 = getAttribute2();
     std::string attr3 = getAttribute3();
     command = "";
-    if (text == "create User"){
+    if (text == "create user"){
         command = "10 " + attr1 + " " + attr2;
     } else if (text == "login" && user_id <= 0){
         command = "11 " + attr1 + " " + attr2;
         setUserID(std::stoi(attr1));
     } else if (user_id > 0){
-	    if (text == "create Group"){
+	    if (text == "create group"){
 		command = "20 " + attr1;
-	    } else if (text == "join Group"){
+	    } else if (text == "join group"){
 		command = "21 " + attr1;
-	    } else if (text == "leave Group"){
+	    } else if (text == "leave group"){
 		command = "29 " + attr1;
 	    } else if (text == "list requests"){
 		command = "42 " + attr1;
@@ -192,48 +192,48 @@ void Widget::on_sendCommandButton_clicked()
 void Widget::on_commandComboBox_currentTextChanged(const QString &arg1)
 {
     std::string text = ui->commandComboBox->currentText().toStdString();
-    if (text == "create User"){
-        setAttribute1("User id");
+    if (text == "create user"){
+        setAttribute1("user id");
         setAttribute2("password");
         setAttribute3("");
     } else if (text == "login"){
-        setAttribute1("User id");
+        setAttribute1("user id");
         setAttribute2("password");
         setAttribute3("");
-    } else if (text == "create Group"){
-        setAttribute1("Group id");
+    } else if (text == "create group"){
+        setAttribute1("group id");
         setAttribute2("");
         setAttribute3("");
-    } else if (text == "join Group"){
-        setAttribute1("Group id");
+    } else if (text == "join group"){
+        setAttribute1("group id");
         setAttribute2("");
         setAttribute3("");
-    } else if (text == "leave Group"){
-        setAttribute1("Group id");
+    } else if (text == "leave group"){
+        setAttribute1("group id");
         setAttribute2("");
         setAttribute3("");
     } else if (text == "list requests"){
-        setAttribute1("Group id");
+        setAttribute1("group id");
         setAttribute2("");
         setAttribute3("");
     } else if (text == "accept request"){
-        setAttribute1("Group id");
-        setAttribute2("User id");
+        setAttribute1("group id");
+        setAttribute2("user id");
         setAttribute3("");
     } else if (text == "list groups"){
         setAttribute1("");
         setAttribute2("");
         setAttribute3("");
     } else if (text == "list files"){
-        setAttribute1("Group id");
+        setAttribute1("group id");
         setAttribute2("");
         setAttribute3("");
     } else if (text == "upload file"){
         setAttribute1("file path");
-        setAttribute2("Group id");
+        setAttribute2("group id");
         setAttribute3("");
     } else if (text == "download file"){
-        setAttribute1("Group id");
+        setAttribute1("group id");
         setAttribute2("file name");
         setAttribute3("destination path");
     } else if (text == "show downloads"){
@@ -241,7 +241,7 @@ void Widget::on_commandComboBox_currentTextChanged(const QString &arg1)
         setAttribute2("");
         setAttribute3("");
     } else if (text == "stop share"){
-        setAttribute1("Group id");
+        setAttribute1("group id");
         setAttribute2("file name");
         setAttribute3("");
     } else {
