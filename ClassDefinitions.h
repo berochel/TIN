@@ -7,13 +7,14 @@
 #include <string.h>
 #include <netinet/in.h>
 #include <openssl/sha.h>
+#define BUFFER_SIZE 4096
 
 using namespace std;
 
+
 size_t PIECE_SIZE = 1024;
-class User
+struct User
 {
-public:
 	User() {}
 	User(string userID, string password)
 	{
@@ -26,21 +27,16 @@ public:
 	bool isLoggedIn;
 };
 
-class Peer
+struct Peer
 {
-public:
 	Peer()
 	{
 		ip = "";
 		port = 0;
 		userID = "";
 	}
-	Peer(string ip, int port, string userID)
-	{
-		this->ip = ip;
-		this->port = port;
-		this->userID = userID;
-	}
+
+    Peer(const string &ip, int port, const string &userId) : ip(ip), port(port), userID(userId) {}
 
 
 	bool operator<(const Peer &rhs) const
@@ -59,33 +55,28 @@ public:
 	string userID;
 };
 
-class Group
+struct Group
 {
-public:
-	Group(string name, string adminUserID)
-	{
-		this->name = name;
-		this->adminUserID = adminUserID;
-	}
+    Group(const string &name, const string &adminUserId, const set<string> &members) : name(name),
+                                                                                       adminUserID(adminUserId),
+                                                                                       members(members) {}
 	string name;
 	string adminUserID;
 	set<string> members;
 };
 
-class GroupPendingRequest
+struct GroupPendingRequest
 {
-public:
 	GroupPendingRequest()
 	{
 		grpname = "";
 		adminname = "";
 	}
-	GroupPendingRequest(string gName, string admin, set<string> members)
-	{
-		grpname = gName;
-		adminname = admin;
-		pendingID = members;
-	}
+
+    GroupPendingRequest(const string &grpname, const string &adminname, const set<string> &pendingId) : grpname(
+            grpname), adminname(adminname), pendingID(pendingId) {}
+
+
 	GroupPendingRequest(const GroupPendingRequest &g)
 	{
 		grpname = g.grpname;
@@ -96,9 +87,8 @@ public:
 	string adminname;
 	set<string> pendingID;
 };
-class FileProperties
+struct FileProperties
 {
-public:
 	int id;
 	string name;
 	string path;
@@ -116,16 +106,12 @@ public:
 		pieces = 0;
 		hash = "";
 	}
-	FileProperties(int i, string n, string p, string grp, int pi, string hh, set<Peer> seedList)
-	{
-		id = i;
-		name = n;
-		path = p;
-		groupName = grp;
-		pieces = pi;
-		hash = hh;
-		seederList = seedList;
-	}
+
+    FileProperties(int id, const string &name, const string &path, const string &groupName, int pieces,
+                   const set<Peer> &seederList, const string &hash) : id(id), name(name), path(path),
+                                                                      groupName(groupName), pieces(pieces),
+                                                                      seederList(seederList), hash(hash) {}
+
 	FileProperties(const FileProperties &f)
 	{
 		id = f.id;
