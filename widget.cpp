@@ -2,7 +2,6 @@
 #include "ui_widget.h"
 #include <QMessageBox>
 
-extern bool IS_LOGGED_IN;
 extern bool IS_PEER_OR_SEEDER;
 extern std::string fileUploadPath;
 extern std::string fileUploadPathGroup;
@@ -99,7 +98,6 @@ void Widget::on_exitButton_clicked()
     sendto(socket, command.c_str(), (command).length(), 0, (struct sockaddr *)&trackerAddress, addr_size);
     setUserID(-1);
     IS_PEER_OR_SEEDER = false;
-    IS_LOGGED_IN = false;
     close();
 }
 
@@ -110,7 +108,6 @@ void Widget::on_logOutButton_clicked()
     clearTextFields();
     setUserID(-1);
     IS_PEER_OR_SEEDER = false;
-    IS_LOGGED_IN = false;
 }
 
 void Widget::on_sendCommandButton_clicked()
